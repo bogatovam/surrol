@@ -3,6 +3,7 @@ from surrol.tasks.needle_pick import NeedlePick
 from surrol.tasks.gauze_retrieve import GauzeRetrieve 
 from surrol.tasks.peg_transfer import PegTransfer
 from surrol.tasks.needle_regrasp_bimanual import NeedleRegrasp
+from surrol.tasks.needle_regrasp_bimanual_custom import NeedleRegrasp_custom
 from surrol.tasks.peg_transfer_bimanual import BiPegTransfer
 from surrol.tasks.ecm_reach import ECMReach
 from surrol.tasks.ecm_misorient import MisOrient

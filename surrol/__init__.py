@@ -39,6 +39,13 @@ register(
 )
 
 register(
+    id='NeedleRegrasp_custom-v0',
+    #entry_point='surrol.tasks.needle_regrasp_bimanual:NeedleRegrasp',
+    entry_point='surrol.tasks:NeedleRegrasp_custom',
+    max_episode_steps=50,
+)
+
+register(
     id='BiPegTransfer-v0',
     #entry_point='surrol.tasks.peg_transfer_bimanual:BiPegTransfer',
     entry_point='surrol.tasks:BiPegTransfer',

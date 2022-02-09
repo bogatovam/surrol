@@ -20,17 +20,15 @@ if __name__ == '__main__':
 
          },
         install_requires=[
-            "tensorflow-gpu==1.14",
-            "gym==0.15.6",
-            "pybullet>=3.0.7",
-            "numpy>=1.21.1",
-            "scipy",
-            "pandas",
             "imageio",
             "imageio-ffmpeg",
             "opencv-python",
             "roboticstoolbox-python",
-            "mpi4py",
             "sympy"
-        ]
+        ],
+        extras_require={
+        'stable-baselines3': [
+                            "stable-baselines3[extra]"
+                            ],
+        }
     )

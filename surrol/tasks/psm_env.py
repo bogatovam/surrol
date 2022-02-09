@@ -401,10 +401,13 @@ class PsmsEnv(PsmEnv):
         # self.obj_ids
 
     def _get_obs(self) -> dict:
+
+        # Robot state: tip [px,py,pz,eul1,eul2,eul3,gripper_state]
         psm1_state = self._get_robot_state(0)
         psm2_state = self._get_robot_state(1)
+
         robot_state = np.concatenate([psm1_state, psm2_state])
-        # may need to modify
+        # If the task involves an object
         if self.has_object:
             pos, _ = get_link_pose(self.obj_id, -1)
             object_pos = np.array(pos)
