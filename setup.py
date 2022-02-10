@@ -20,6 +20,7 @@ if __name__ == '__main__':
 
          },
         install_requires=[
+            "pybullet",
             "imageio",
             "imageio-ffmpeg",
             "opencv-python",

@@ -2,13 +2,16 @@ import gym
 import surrol
 import numpy as np
 from matplotlib import pyplot as plt
+import torch
 
 
-from stable_baselines3 import DDPG,PPO,TD3, HerReplayBuffer
-from stable_baselines3.common.vec_env import SubprocVecEnv
-from stable_baselines3.her.goal_selection_strategy import GoalSelectionStrategy
+from stable_baselines3 import DDPG,PPO,TD3, HerReplayBuffer, VecHerReplayBuffer
+from stable_baselines3.common.noise import NormalActionNoise
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, SubprocVecEnv
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.env_util import make_vec_env
+import random
 
 def make_env(env_id, rank, seed=0):
     """
@@ -34,60 +37,57 @@ if __name__ == '__main__':
     ############################################
 
     env_id = 'NeedleReach-v0'
-    #n_envs = 2
+    n_envs = 4
     max_episode_length = 50
-    total_timesteps = 3e5
-    lr = 5e-4
-    buffer_size = 500000
+    total_timesteps = 6e4
+    learning_starts = 10000
+    lr = 1e-3
+    buffer_size = 200000
     batch_size = 1024
+    log_dir = "./logs/TD3/NeedleReach-v0/"
+    seed=1
 
-    #print('Running for n_procs = {}'.format(n_envs))
-    
-    #env = SubprocVecEnv([make_env(env_id, i) for i in range(n_cpu)])
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed) 
 
-    #env = make_vec_env(env_id,n_envs)
+    print('Running for n_procs = {}'.format(n_envs))
 
-    env = gym.make(env_id)
+    env = make_vec_env(env_id,n_envs,seed,monitor_dir=log_dir,vec_env_cls=SubprocVecEnv)
+    env = VecNormalize(env,norm_obs=True,norm_reward=True,clip_obs=100.)
 
-    env.reset()
+    #env = gym.make(env_id)
+    #env = Monitor(env, log_dir)
+
+    n_actions = env.action_space.shape[-1]
+    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
 
     model = TD3('MultiInputPolicy', 
         env,
+        action_noise=action_noise,
         batch_size = batch_size,
-        learning_starts = 10000,
+        learning_starts = learning_starts,
         buffer_size=buffer_size, 
-        replay_buffer_class=HerReplayBuffer, 
+        replay_buffer_class=VecHerReplayBuffer, 
         replay_buffer_kwargs=dict(
             n_sampled_goal=4,
             goal_selection_strategy='future',
             online_sampling=True,
-            max_episode_length=max_episode_length,
+            max_episode_length=max_episode_length
         ),
         learning_rate=lr,
-        verbose=1,
-        tensorboard_log="./tb/HER_NeedleReach/")
+        train_freq=1,
+        gradient_steps=n_envs,
+        verbose=0,
+        tensorboard_log=log_dir+"./tensorboard/",
+        seed=seed)
     
 
-    model.learn(total_timesteps,tb_log_name='HER_test')
+    model.learn(total_timesteps,tb_log_name='run')
 
-    model.save("./her_env")
-    # Because it needs access to `env.compute_reward()`
-    # HER must be loaded with the env
-    
-
-    model = DDPG.load('./her_env', env=env)
-
-    obs = env.reset()
-    for _ in range(100):
-        action, _ = model.predict(obs, deterministic=True)
-        obs, reward, done, _ = env.step(action)
-        env.render()
-
-        if done:
-            obs = env.reset()
-
-
-
+    model.save(log_dir+"TD3_HER_NeedleReach-v0")
+    env.save(log_dir+"TD3_HER_NeedleReach-v0_stats")
 
 
 

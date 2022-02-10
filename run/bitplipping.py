@@ -3,8 +3,8 @@ from stable_baselines3.her.goal_selection_strategy import GoalSelectionStrategy
 from stable_baselines3.common.envs import BitFlippingEnv
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-model_class = DDPG  # works also with SAC, DDPG and TD3
-N_BITS = 14
+model_class = TD3  # works also with SAC, DDPG and TD3
+N_BITS = 10
 
 env = BitFlippingEnv(n_bits=N_BITS, continuous=model_class in [DDPG, SAC, TD3], max_steps=N_BITS, image_obs_space=False)
 

@@ -83,6 +83,17 @@ class NeedleReach(PsmEnv):
 if __name__ == "__main__":
     env = NeedleReach(render_mode='human')  # create one process and corresponding env
 
-    env.test()
+    observation = env.reset()
+
+    for i in range(100):
+        env.render()
+        action = env.get_oracle_action(observation)
+        observation, reward, done, info = env.step(action)
+
+        if done:
+            observation = env.reset()
+
+
+    #env.test()
     env.close()
     time.sleep(2)
