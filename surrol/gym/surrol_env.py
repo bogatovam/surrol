@@ -42,7 +42,7 @@ class SurRoLEnv(gym.Env):
             self.cid = p.connect(p.DIRECT)
             # See PyBullet Quickstart Guide Synthetic Camera Rendering
             # TODO: no light when using direct without egl
-            if socket.gethostname().startswith('pc') or True:
+            if socket.gethostname().startswith('pc'):
                 # TODO: not able to run on remote server
                 egl = pkgutil.get_loader('eglRenderer')
                 plugin = p.loadPlugin(egl.get_filename(), "_eglRendererPlugin")

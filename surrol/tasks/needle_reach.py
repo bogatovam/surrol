@@ -90,7 +90,7 @@ if __name__ == "__main__":
         action = env.get_oracle_action(observation)
         observation, reward, done, info = env.step(action)
 
-        if done:
+        if done or info['is_success']:
             observation = env.reset()
 
 
