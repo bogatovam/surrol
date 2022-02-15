@@ -23,7 +23,8 @@ def make_env(env_id, rank, seed=0):
     :param rank: (int) index of the subprocess
     """
     def _init():
-        env = gym.make(env_id)
+        env = gym.make(env_id,render_mode='human')
+        env = Monitor(env, log_dir)
         env.seed(seed + rank)
         return env
     set_random_seed(seed)
@@ -40,10 +41,10 @@ if __name__ == '__main__':
     #n_envs = 4
     max_episode_length = 50
     total_timesteps = 6e4
-    learning_starts = 10000
+    learning_starts = 20000
     lr = 1e-3
     buffer_size = 200000
-    batch_size = 1024
+    batch_size = 2048
     log_dir = "./logs/TD3/NeedleReach-v0/"
     seed=1
 
@@ -54,13 +55,12 @@ if __name__ == '__main__':
 
     #print('Running for n_procs = {}'.format(n_envs))
 
+    env = DummyVecEnv([make_env(env_id,0,seed)])
+
     #env = make_vec_env(env_id,n_envs,seed,monitor_dir=log_dir,vec_env_cls=SubprocVecEnv)
     #env = VecNormalize(env,norm_obs=True,norm_reward=True,clip_obs=100.)
 
-    env = gym.make(env_id,render_mode='human')
-
-    #env = gym.make(env_id)
-    #env = Monitor(env, log_dir)
+    env = VecNormalize(env,norm_obs=True)
 
     n_actions = env.action_space.shape[-1]
     action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
