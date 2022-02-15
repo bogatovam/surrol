@@ -37,7 +37,7 @@ if __name__ == '__main__':
     ############################################
 
     env_id = 'NeedleReach-v0'
-    n_envs = 4
+    #n_envs = 4
     max_episode_length = 50
     total_timesteps = 6e4
     learning_starts = 10000
@@ -52,10 +52,12 @@ if __name__ == '__main__':
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed) 
 
-    print('Running for n_procs = {}'.format(n_envs))
+    #print('Running for n_procs = {}'.format(n_envs))
 
-    env = make_vec_env(env_id,n_envs,seed,monitor_dir=log_dir,vec_env_cls=SubprocVecEnv)
-    env = VecNormalize(env,norm_obs=True,norm_reward=True,clip_obs=100.)
+    #env = make_vec_env(env_id,n_envs,seed,monitor_dir=log_dir,vec_env_cls=SubprocVecEnv)
+    #env = VecNormalize(env,norm_obs=True,norm_reward=True,clip_obs=100.)
+
+    env = gym.make(env_id,render_mode='human')
 
     #env = gym.make(env_id)
     #env = Monitor(env, log_dir)
@@ -78,8 +80,8 @@ if __name__ == '__main__':
         ),
         learning_rate=lr,
         train_freq=1,
-        gradient_steps=n_envs,
-        verbose=0,
+        gradient_steps=1,
+        verbose=1,
         tensorboard_log=log_dir+"./tensorboard/",
         seed=seed)
     
