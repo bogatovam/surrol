@@ -1,6 +1,9 @@
 __pycache__/
+.DS_Store
+*.code-workspace
 .ipynb_checkpoints/
 .idea
+logs
 surrol.egg-info
 policies
 surrol/data/demo
