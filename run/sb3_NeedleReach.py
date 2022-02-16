@@ -38,9 +38,8 @@ if __name__ == '__main__':
     ############################################
 
     env_id = 'NeedleReach-v0'
-    #n_envs = 4
     max_episode_length = 50
-    total_timesteps = 6e4
+    total_timesteps = 4e4
     learning_starts = 20000
     lr = 1e-3
     buffer_size = 200000
@@ -53,12 +52,7 @@ if __name__ == '__main__':
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed) 
 
-    #print('Running for n_procs = {}'.format(n_envs))
-
-    env = DummyVecEnv([make_env(env_id,0,seed)])
-
-    #env = make_vec_env(env_id,n_envs,seed,monitor_dir=log_dir,vec_env_cls=SubprocVecEnv)
-    #env = VecNormalize(env,norm_obs=True,norm_reward=True,clip_obs=100.)
+    env = make_vec_env(env_id,1,seed,monitor_dir=log_dir,env_kwargs={'render_mode':'human','seed':seed})
 
     env = VecNormalize(env,norm_obs=True)
 
@@ -71,12 +65,13 @@ if __name__ == '__main__':
         batch_size = batch_size,
         learning_starts = learning_starts,
         buffer_size=buffer_size, 
-        replay_buffer_class=VecHerReplayBuffer, 
+        replay_buffer_class=HerReplayBuffer, 
         replay_buffer_kwargs=dict(
             n_sampled_goal=4,
             goal_selection_strategy='future',
             online_sampling=True,
-            max_episode_length=max_episode_length
+            max_episode_length=max_episode_length,
+            handle_timeout_termination=True
         ),
         learning_rate=lr,
         train_freq=1,

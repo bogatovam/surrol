@@ -81,7 +81,7 @@ class NeedleReach(PsmEnv):
 
 
 if __name__ == "__main__":
-    env = NeedleReach(render_mode='human')  # create one process and corresponding env
+    env = NeedleReach(render_mode='human',seed=1)  # create one process and corresponding env
 
     observation = env.reset()
 
