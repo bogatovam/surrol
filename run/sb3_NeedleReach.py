@@ -1,11 +1,11 @@
 import gym
-import surrol
 import numpy as np
 from matplotlib import pyplot as plt
 import torch
 
+import surrol
+from surrol.algorithms import TD3_HER_DEMO
 
-from stable_baselines3 import DDPG,PPO,TD3, HerReplayBuffer, VecHerReplayBuffer
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, SubprocVecEnv
 from stable_baselines3.common.monitor import Monitor
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     env_id = 'NeedleReach-v0'
     max_episode_length = 50
     total_timesteps = 4e4
-    learning_starts = 20000
+    learning_starts = 200
     lr = 1e-3
     buffer_size = 200000
     batch_size = 2048
@@ -59,13 +59,12 @@ if __name__ == '__main__':
     n_actions = env.action_space.shape[-1]
     action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
 
-    model = TD3('MultiInputPolicy', 
+    model = TD3_HER_DEMO('MultiInputPolicy', 
         env,
         action_noise=action_noise,
         batch_size = batch_size,
         learning_starts = learning_starts,
-        buffer_size=buffer_size, 
-        replay_buffer_class=HerReplayBuffer, 
+        buffer_size=buffer_size,  
         replay_buffer_kwargs=dict(
             n_sampled_goal=4,
             goal_selection_strategy='future',
@@ -83,8 +82,8 @@ if __name__ == '__main__':
 
     model.learn(total_timesteps,tb_log_name='run')
 
-    model.save(log_dir+"TD3_HER_NeedleReach-v0")
-    env.save(log_dir+"TD3_HER_NeedleReach-v0_stats")
+    model.save(log_dir+"TD3_HER_"+env_id)
+    env.save(log_dir+"TD3_HER_"+env_id+"_stats")
 
 
 
