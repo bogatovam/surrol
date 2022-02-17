@@ -5,6 +5,3 @@
 [submodule "stable-baselines3"]
 	path = stable-baselines3
 	url = git@github.com:rokas-bendikas/stable-baselines3.git
-[submodule "imitation"]
-	path = imitation
-	url = https://github.com/HumanCompatibleAI/imitation.git
