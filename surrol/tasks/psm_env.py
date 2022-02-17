@@ -348,7 +348,7 @@ class PsmEnv(SurRoLGoalEnv):
     def action_size(self):
         return self.ACTION_SIZE
 
-    def get_oracle_action(self, obs) -> np.ndarray:
+    def get_oracle_action_task_specific(self, obs) -> np.ndarray:
         """
         Define a scripted oracle strategy
         """

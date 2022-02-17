@@ -4,6 +4,7 @@ import socket
 import gym
 from gym import spaces
 from gym.utils import seeding
+from matplotlib import collections
 
 import pybullet as p
 import pybullet_data
@@ -13,6 +14,9 @@ from surrol.utils.pybullet_utils import (
     render_image,
 )
 import numpy as np
+from typing import Union
+from collections import OrderedDict
+
 
 RENDER_HEIGHT = 480  # train
 RENDER_WIDTH = 640
@@ -204,11 +208,25 @@ class SurRoLEnv(gym.Env):
     def action_size(self):
         raise NotImplementedError
 
+    def _check_vec_obs_format(self, obs: Union[OrderedDict, dict, list]) -> np.ndarray:
+
+        if isinstance(obs,list):
+            obs = obs[0].copy()
+
+        for key in obs.keys():
+            if len(obs[key].shape) > 1:
+                obs[key] = obs[key].reshape(-1)
+
+        return obs
+
     def get_oracle_action(self, obs) -> np.ndarray:
         """
         Define a scripted oracle strategy
         """
-        raise NotImplementedError
+        obs = self._check_vec_obs_format(obs)
+        action = self.get_oracle_action_task_specific(obs)
+
+        return action
 
     def test(self, horizon=100):
         """

@@ -107,7 +107,7 @@ class NeedlePick(PsmEnv):
             pose = get_link_pose(self.obj_id, self.obj_link1)
             return pose[0][2] > self._waypoint_z_init + 0.005 * self.SCALING
 
-    def get_oracle_action(self, obs) -> np.ndarray:
+    def get_oracle_action_task_specific(self, obs) -> np.ndarray:
         """
         Define a human expert strategy
         """

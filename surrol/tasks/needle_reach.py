@@ -65,10 +65,11 @@ class NeedleReach(PsmEnv):
         goal = np.array([pos[0], pos[1], pos[2] + 0.005 * self.SCALING])
         return goal.copy()
 
-    def get_oracle_action(self, obs) -> np.ndarray:
+    def get_oracle_action_task_specific(self, obs) -> np.ndarray:
         """
         Define a human expert strategy
         """
+
         delta_pos = (obs['desired_goal'] - obs['achieved_goal']) / 0.01
         if np.linalg.norm(delta_pos) < 1.5:
             delta_pos.fill(0)
@@ -85,15 +86,6 @@ if __name__ == "__main__":
 
     observation = env.reset()
 
-    for i in range(100):
-        env.render()
-        action = env.get_oracle_action(observation)
-        observation, reward, done, info = env.step(action)
-
-        if done or info['is_success']:
-            observation = env.reset()
-
-
-    #env.test()
+    env.test()
     env.close()
     time.sleep(2)
