@@ -44,7 +44,7 @@ if __name__ == '__main__':
     lr = 1e-3
     buffer_size = 200000
     batch_size = 2048
-    log_dir = "./logs/TD3/NeedleReach-v0/"
+    log_dir = "./logs/TD3/"+env_id+"/"
     seed=1
 
     random.seed(seed)
