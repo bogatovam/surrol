@@ -1,5 +1,6 @@
 from surrol.tasks.needle_reach import NeedleReach
 from surrol.tasks.needle_pick import NeedlePick
+from surrol.tasks.needle_pick_point_specific import NeedlePickPointSpecific
 from surrol.tasks.gauze_retrieve import GauzeRetrieve 
 from surrol.tasks.peg_transfer import PegTransfer
 from surrol.tasks.needle_regrasp_bimanual import NeedleRegrasp

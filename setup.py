@@ -26,7 +26,8 @@ if __name__ == '__main__':
             "imageio-ffmpeg",
             "opencv-python",
             "roboticstoolbox-python",
-            "sympy"
+            "sympy",
+            "wandb"
         ],
         extras_require={
         'stable-baselines3': [

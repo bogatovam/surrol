@@ -5,6 +5,7 @@ import gym
 from gym import spaces
 from gym.utils import seeding
 from matplotlib import collections
+import random
 
 import pybullet as p
 import pybullet_data
@@ -32,7 +33,7 @@ class SurRoLEnv(gym.Env):
 
     metadata = {'render.modes': ['human', 'rgb_array', 'img_array']}
 
-    def __init__(self, render_mode: str = None, seed: bool = None):
+    def __init__(self, render_mode: str = None, seed: int = None):
         # rendering and connection options
         self._render_mode = render_mode
         # render_mode = 'human'
@@ -160,6 +161,8 @@ class SurRoLEnv(gym.Env):
             return rgb_array, mask
 
     def seed(self, seed):
+        random.seed(seed)
+        np.random.seed(seed)
         self._np_random, seed = seeding.np_random(seed)
         return [seed]
 

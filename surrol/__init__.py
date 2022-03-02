@@ -24,6 +24,13 @@ register(
 )
 
 register(
+    id='NeedlePickPointSpecific-v0',
+    #entry_point='surrol.tasks.needle_pick:NeedlePick',
+    entry_point='surrol.tasks:NeedlePickPointSpecific',
+    max_episode_steps=50,
+)
+
+register(
     id='PegTransfer-v0',
     #entry_point='surrol.tasks.peg_transfer:PegTransfer',
     entry_point='surrol.tasks:PegTransfer',
