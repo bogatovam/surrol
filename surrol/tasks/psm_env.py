@@ -4,6 +4,7 @@ import pybullet as p
 from surrol.gym.surrol_goalenv import SurRoLGoalEnv
 from surrol.robots.psm import Psm1, Psm2
 from surrol.utils.pybullet_utils import (
+    get_euler_from_quaternion,
     get_link_pose,
     wrap_angle,
     reset_camera
@@ -21,7 +22,21 @@ import pandas as pd
 
 def goal_distance(goal_a, goal_b):
     assert goal_a.shape == goal_b.shape
-    return np.linalg.norm(goal_a - goal_b, axis=-1)
+    return np.linalg.norm(goal_a[:3] - goal_b[:3], axis=-1)
+
+def goal_orientation(goal_a, goal_b):
+    assert goal_a.shape == goal_b.shape
+    ori_a = get_euler_from_quaternion(goal_a[3:])
+    ori_b = get_euler_from_quaternion(goal_b[3:])
+
+    goal_a_euler = [wrap_angle(ang) for ang in ori_a]
+    goal_b_euler = [wrap_angle(ang) for ang in ori_b]
+
+    a = np.linalg.norm(np.array(goal_a_euler) - np.array(goal_b_euler), axis=-1)
+
+    print('Delta: {}'.format(a))
+
+    return a
 
 
 class PsmEnv(SurRoLGoalEnv):
@@ -35,6 +50,7 @@ class PsmEnv(SurRoLGoalEnv):
     ACTION_SIZE = 5  # (dx, dy, dz, dyaw/dpitch, open/close)
     ACTION_MODE = 'yaw'
     DISTANCE_THRESHOLD = 0.005
+    ORIENTATION_THRESHOLD = 0.05
     POSE_PSM1 = ((0.05, 0.24, 0.8524), (0, 0, -(90 + 20) / 180 * np.pi))
     QPOS_PSM1 = (0, 0, 0.10, 0, 0, 0)
     POSE_TABLE = ((0.5, 0, 0.001), (0, 0, 0))
@@ -42,7 +58,7 @@ class PsmEnv(SurRoLGoalEnv):
     SCALING = 1.
 
     def __init__(self,
-                 render_mode=None):
+                 render_mode=None,seed=None):
         # workspace
         workspace_limits = np.asarray(self.WORKSPACE_LIMITS1) \
                            + np.array([0., 0., 0.0102]).reshape((3, 1))  # tip-eef offset with collision margin
@@ -58,10 +74,16 @@ class PsmEnv(SurRoLGoalEnv):
         self.block_gripper = True
         self._activated = -1
 
-        super(PsmEnv, self).__init__(render_mode)
+        # object orientation needs to match the goals
+        self.goal_orientation_required = False
+
+        super(PsmEnv, self).__init__(render_mode,seed)
 
         # distance_threshold
         self.distance_threshold = self.DISTANCE_THRESHOLD * self.SCALING
+
+        # orientation_threshold
+        self.orientation_threshold = self.ORIENTATION_THRESHOLD * self.SCALING
 
         # render related setting
         self._view_matrix = p.computeViewMatrixFromYawPitchRoll(
@@ -227,6 +249,11 @@ class PsmEnv(SurRoLGoalEnv):
         """ Indicates whether or not the achieved goal successfully achieved the desired goal.
         """
         d = goal_distance(achieved_goal, desired_goal)
+
+        if self.goal_orientation_required:
+            o = goal_orientation(achieved_goal, desired_goal)
+            return (d < self.distance_threshold and o < self.orientation_threshold).astype(np.float32)
+
         return (d < self.distance_threshold).astype(np.float32)
 
     def _step_callback(self):
@@ -348,7 +375,7 @@ class PsmEnv(SurRoLGoalEnv):
     def action_size(self):
         return self.ACTION_SIZE
 
-    def get_oracle_action(self, obs) -> np.ndarray:
+    def get_oracle_action_task_specific(self, obs) -> np.ndarray:
         """
         Define a scripted oracle strategy
         """
@@ -401,10 +428,13 @@ class PsmsEnv(PsmEnv):
         # self.obj_ids
 
     def _get_obs(self) -> dict:
+
+        # Robot state: tip [px,py,pz,eul1,eul2,eul3,gripper_state]
         psm1_state = self._get_robot_state(0)
         psm2_state = self._get_robot_state(1)
+
         robot_state = np.concatenate([psm1_state, psm2_state])
-        # may need to modify
+        # If the task involves an object
         if self.has_object:
             pos, _ = get_link_pose(self.obj_id, -1)
             object_pos = np.array(pos)

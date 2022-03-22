@@ -9,27 +9,29 @@ if __name__ == '__main__':
         author='Med-AIR@CUHK',
         keywords='simulation, medical robotics, dVRK, reinforcement learning',
         packages=[
-            'surrol',
+            'surrol','surrol.tasks','surrol.gym','surrol.utils','surrol.robots','surrol.algorithms'
         ],
+        package_dir={
+             'surrol' : 'surrol',
+             'surrol.tasks' : 'surrol/tasks',
+             'surrol.gym' : 'surrol/gym',
+             'surrol.utils' : 'surrol/utils',
+             'surrol.robots' : 'surrol/robots',
+             'surrol.algorithms' : 'surrol/algorithms'
+
+         },
         install_requires=[
-            "gym>=0.15.6",
-            "pybullet>=3.0.7",
-            "numpy>=1.21.1",
-            "scipy",
-            "pandas",
+            "pybullet",
             "imageio",
             "imageio-ffmpeg",
             "opencv-python",
             "roboticstoolbox-python",
+            "sympy",
+            "wandb"
         ],
         extras_require={
-            # optional dependencies, required by evaluation, test, etc.
-            "all": [
-                "tensorflow-gpu==1.14",
-                "baselines",
-                "mpi4py",  # important for ddpg
-                "ipython",
-                "jupyter",
-            ]
+        'stable-baselines3': [
+                            "stable-baselines3[extra]"
+                            ],
         }
     )

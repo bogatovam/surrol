@@ -858,3 +858,30 @@ def render_image(width, height, view_matrix, proj_matrix, shadow=1):
 
     rgb_array = rgb_array[:, :, :3]
     return rgb_array, mask
+
+
+# Plotting
+
+def plot_coordinate_frame(object, link=-1, lifeTime = None):
+
+    if not lifeTime:
+        lifeTime = 0
+
+    pos, orn = get_link_pose(object, link)
+
+    rot_matrix = p.getMatrixFromQuaternion(orn) 
+
+    rot_matrix  = np.true_divide(rot_matrix,10)
+
+    id1 = p.addUserDebugLine(pos,pos+rot_matrix[0:9:3],lineColorRGB=[1,0,0],lifeTime = lifeTime)
+    id2 = p.addUserDebugLine(pos,pos+rot_matrix[1:9:3],lineColorRGB=[0,1,0],lifeTime = lifeTime)
+    id3 = p.addUserDebugLine(pos,pos+rot_matrix[2:9:3],lineColorRGB=[0,0,1],lifeTime = lifeTime)
+
+    return [id1,id2,id3]
+
+    
+
+
+   
+
+
