@@ -19,8 +19,8 @@ if __name__ == '__main__':
     ############## PARAMETERS ##################
     ############################################
 
-    env_id = 'NeedlePick-v0'
-    log_dir = "./logs/TD3/NeedlePick-v0/"
+    env_id = 'NeedlePickPointSpecific-v0'
+    log_dir = "./logs/TD3/"+env_id+'/'
     seed = 1
 
     env = make_vec_env(env_id,1,seed,monitor_dir=log_dir,env_kwargs={'render_mode':'human','seed':seed})

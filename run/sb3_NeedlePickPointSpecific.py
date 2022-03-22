@@ -4,6 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import torch
 import wandb
+from tensorboard import program
 
 
 import surrol
@@ -75,14 +76,14 @@ if __name__ == '__main__':
     seed=1
     tau = 0.01
     gamma = 0.95
-    oracle_actions = False
+    oracle_actions = True
 
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed) 
 
-    env = make_vec_env(env_id,1,seed,monitor_dir=log_dir,env_kwargs={'render_mode':'humans','seed':seed})
+    env = make_vec_env(env_id,1,seed,monitor_dir=log_dir,env_kwargs={'render_mode':'human','seed':seed})
 
     env = VecNormalize(env,norm_obs=True)
 
@@ -109,12 +110,17 @@ if __name__ == '__main__':
         gamma=gamma,
         train_freq=1,
         gradient_steps=1,
-        verbose=1,
+        verbose=0,
         tensorboard_log=log_dir+"./tensorboard/",
         seed=seed)
     
     checkpoint_callback = ModelEnvCheckpointCallback(save_freq=save_frequency, save_path=log_dir,
                                          name_prefix='TD3_HER_'+env_id)
+
+    tb = program.TensorBoard()
+    tb.configure(argv=[None, '--logdir', log_dir+'tensorboard'])
+    url = tb.launch()
+    print(f"Tensorflow listening on {url}")
 
     model.learn(total_timesteps,callback=checkpoint_callback,tb_log_name='run')
 
