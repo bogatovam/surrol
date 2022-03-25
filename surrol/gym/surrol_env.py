@@ -119,7 +119,6 @@ class SurRoLEnv(gym.Env):
             reward = self.compute_reward(obs, self.goal, info)
         # if len(self.actions) > 0:
         #     self.actions[-1] = np.append(self.actions[-1], [reward])  # only for demo
-        print(reward)
         return obs, reward, done, info
 
     def reset(self):

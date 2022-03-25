@@ -160,16 +160,16 @@ class NeedleGrasp(PsmEnv):
             pose = get_link_pose(self.obj_id, self.obj_link1)
             return pose[0][2] > self._waypoint_z_init + 0.005 * self.SCALING
 
+    '''
     def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info):
         """ All sparse reward.
         The reward is 0 or -1.
         """
-
+        
         completion_reward = 3.
 
         if len(achieved_goal.shape) > 1:
             reward = np.zeros(info.shape)
-            info[0]['is_success'] = 1.0
             for i,s in enumerate(info):
                 if s['is_success']:
                     reward[i] = completion_reward
@@ -183,9 +183,7 @@ class NeedleGrasp(PsmEnv):
                     d = 1/d
 
                     reward[i] = d
-
         else:
-            
             if info['is_success']:
                     reward = completion_reward
             else:
@@ -201,10 +199,16 @@ class NeedleGrasp(PsmEnv):
                 
         return reward
 
+        
+
 
 
         # d = goal_distance(achieved_goal, desired_goal)
         # return - (d > self.distance_threshold).astype(np.float32)
+
+        d = goal_distance(achieved_goal, desired_goal)
+
+        return (d > self.distance_threshold).astype(np.float32)
         
 
 
@@ -214,7 +218,9 @@ class NeedleGrasp(PsmEnv):
         d = goal_distance(achieved_goal, desired_goal)
 
         return (d < self.distance_threshold).astype(np.float32)
+    '''
 
+    
 if __name__ == "__main__":
 
     env = NeedleGrasp(render_mode='human',seed=1)  # create one process and corresponding env

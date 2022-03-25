@@ -68,9 +68,9 @@ if __name__ == '__main__':
     max_episode_length = 50
     total_timesteps = 4e5
     save_frequency = 50000
-    lr = 1e-3
+    lr = 1e-4
     buffer_size = 400000
-    batch_size = 2048
+    batch_size = 1024
     log_dir = "./logs/TD3/"+env_id+"/"
     seed=1
     tau = 0.01
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     env = VecNormalize(env,norm_obs=True,norm_reward=False)
 
     n_actions = env.action_space.shape[-1]
-    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.3 * np.ones(n_actions))
+    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.2 * np.ones(n_actions))
 
     model = TD3('MultiInputPolicy', 
         env,
@@ -110,6 +110,17 @@ if __name__ == '__main__':
         verbose=1,
         tensorboard_log=log_dir+"./tensorboard/",
         seed=seed)
+
+    '''
+        replay_buffer_class=HerReplayBuffer,  
+        replay_buffer_kwargs=dict(
+            n_sampled_goal=4,
+            goal_selection_strategy='future',
+            online_sampling=True,
+            max_episode_length=max_episode_length,
+            handle_timeout_termination=True
+        ),
+    '''
     
     checkpoint_callback = ModelEnvCheckpointCallback(save_freq=save_frequency, save_path=log_dir,
                                          name_prefix='TD3_HER_'+env_id)
