@@ -22,7 +22,8 @@ import pandas as pd
 
 def goal_distance(goal_a, goal_b):
     assert goal_a.shape == goal_b.shape
-    return np.linalg.norm(goal_a[:3] - goal_b[:3], axis=-1)
+
+    return np.linalg.norm(goal_a - goal_b, axis=-1)
 
 def goal_orientation(goal_a, goal_b):
     assert goal_a.shape == goal_b.shape
