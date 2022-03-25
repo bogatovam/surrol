@@ -10,6 +10,13 @@ register(
 )
 
 register(
+    id='NeedleGrasp-v0',
+    #entry_point='surrol.tasks.needle_reach:NeedleReach',
+    entry_point='surrol.tasks:NeedleGrasp',
+    max_episode_steps=50,
+)
+
+register(
     id='GauzeRetrieve-v0',
     #entry_point='surrol.tasks.gauze_retrieve:GauzeRetrieve',
     entry_point='surrol.tasks:GauzeRetrieve',

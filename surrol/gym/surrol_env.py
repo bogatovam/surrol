@@ -119,6 +119,7 @@ class SurRoLEnv(gym.Env):
             reward = self.compute_reward(obs, self.goal, info)
         # if len(self.actions) > 0:
         #     self.actions[-1] = np.append(self.actions[-1], [reward])  # only for demo
+        print(reward)
         return obs, reward, done, info
 
     def reset(self):
@@ -180,7 +181,7 @@ class SurRoLEnv(gym.Env):
         """
         raise NotImplementedError
 
-    def _is_success(self, achieved_goal, desired_goal):
+    def _is_success(self, achieved_goal, desired_goal, info=None):
         """ Indicates whether or not the achieved goal successfully achieved the desired goal.
         """
         raise NotImplementedError
@@ -251,6 +252,7 @@ class SurRoLEnv(gym.Env):
             done = info['is_success'] if isinstance(obs, dict) else done
             steps += 1
             toc = time.time()
+            print(" -> reward: {}".format(np.round(reward, 4)))
             print(" -> step time: {:.4f}".format(toc - tic))
             time.sleep(0.05)
         print('\n -> Done: {}\n'.format(done > 0))

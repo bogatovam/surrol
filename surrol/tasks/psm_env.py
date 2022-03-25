@@ -245,7 +245,7 @@ class PsmEnv(SurRoLGoalEnv):
         # act = np.append(act, int(action[4] < 0))
         # self.actions.append(act)
 
-    def _is_success(self, achieved_goal, desired_goal):
+    def _is_success(self, achieved_goal, desired_goal, info=None):
         """ Indicates whether or not the achieved goal successfully achieved the desired goal.
         """
         d = goal_distance(achieved_goal, desired_goal)
