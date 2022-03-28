@@ -3,6 +3,7 @@ import gym
 import numpy as np
 from matplotlib import pyplot as plt
 import torch
+from tensorboard import program
 
 
 
@@ -68,18 +69,14 @@ if __name__ == '__main__':
     max_episode_length = 50
     total_timesteps = 4e5
     save_frequency = 50000
+    learning_starts = 10000
     lr = 1e-4
     buffer_size = 400000
-    batch_size = 1024
+    batch_size = 2048
     log_dir = "./logs/TD3/"+env_id+"/"
     seed=1
     tau = 0.01
     gamma = 0.95
-
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed) 
 
     env = make_vec_env(env_id,1,seed,monitor_dir=log_dir,env_kwargs={'render_mode':'human','seed':seed})
 
@@ -103,6 +100,7 @@ if __name__ == '__main__':
             handle_timeout_termination=True
         ),
         learning_rate=lr,
+        learning_starts=learning_starts,
         tau=tau,
         gamma=gamma,
         train_freq=1,
@@ -111,19 +109,14 @@ if __name__ == '__main__':
         tensorboard_log=log_dir+"./tensorboard/",
         seed=seed)
 
-    '''
-        replay_buffer_class=HerReplayBuffer,  
-        replay_buffer_kwargs=dict(
-            n_sampled_goal=4,
-            goal_selection_strategy='future',
-            online_sampling=True,
-            max_episode_length=max_episode_length,
-            handle_timeout_termination=True
-        ),
-    '''
     
     checkpoint_callback = ModelEnvCheckpointCallback(save_freq=save_frequency, save_path=log_dir,
                                          name_prefix='TD3_HER_'+env_id)
+
+    tb = program.TensorBoard()
+    tb.configure(argv=[None, '--logdir', log_dir+'tensorboard'])
+    url = tb.launch()
+    print(f"Tensorflow listening on {url}")
 
     model.learn(total_timesteps,callback=checkpoint_callback,tb_log_name='run')
 

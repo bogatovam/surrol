@@ -88,7 +88,7 @@ class NeedleGrasp(PsmEnv):
 
         observation = np.concatenate([
             robot_state, waypoint_pos.ravel(),
-            waypoint_rot.ravel()  # achieved_goal.copy(),
+            waypoint_rot.ravel()
         ])
 
         obs = {

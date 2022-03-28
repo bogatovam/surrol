@@ -161,8 +161,6 @@ class SurRoLEnv(gym.Env):
             return rgb_array, mask
 
     def seed(self, seed):
-        random.seed(seed)
-        np.random.seed(seed)
         self._np_random, seed = seeding.np_random(seed)
         return [seed]
 
