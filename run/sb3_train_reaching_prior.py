@@ -53,7 +53,7 @@ class ModelEnvCheckpointCallback(BaseCallback):
         if self.n_calls % self.save_freq == 0:
             path = os.path.join(self.save_path, f"{self.name_prefix}_{self.num_timesteps}_steps")
             self.model.save(path)
-            self.model.env.save(path+'_stats')
+            #self.model.env.save(path+'_stats')
             if self.verbose > 1:
                 print(f"Saving model checkpoint to {path}")
         return True
@@ -67,11 +67,11 @@ if __name__ == '__main__':
 
     env_id = 'NeedleGrasp-v0'
     max_episode_length = 50
-    total_timesteps = 4e5
+    total_timesteps = 2e5
     save_frequency = 50000
     learning_starts = 10000
     lr = 1e-4
-    buffer_size = 400000
+    buffer_size = 200000
     batch_size = 2048
     log_dir = "./logs/TD3/"+env_id+"/"
     seed=1
@@ -80,7 +80,7 @@ if __name__ == '__main__':
 
     env = make_vec_env(env_id,1,seed,monitor_dir=log_dir,env_kwargs={'render_mode':'human','seed':seed})
 
-    env = VecNormalize(env,norm_obs=True,norm_reward=False)
+    #env = VecNormalize(env,norm_obs=True,norm_reward=False)
 
     n_actions = env.action_space.shape[-1]
     action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.2 * np.ones(n_actions))
@@ -121,7 +121,7 @@ if __name__ == '__main__':
     model.learn(total_timesteps,callback=checkpoint_callback,tb_log_name='run')
 
     model.save(log_dir+"TD3_HER_"+env_id)
-    env.save(log_dir+"TD3_HER_"+env_id+"_stats")
+    #env.save(log_dir+"TD3_HER_"+env_id+"_stats")
 
 
 
