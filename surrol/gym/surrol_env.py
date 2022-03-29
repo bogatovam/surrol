@@ -33,7 +33,7 @@ class SurRoLEnv(gym.Env):
 
     metadata = {'render.modes': ['human', 'rgb_array', 'img_array']}
 
-    def __init__(self, render_mode: str = None, seed: int = None):
+    def __init__(self, render_mode: str = None):
         # rendering and connection options
         self._render_mode = render_mode
         # render_mode = 'human'
@@ -69,7 +69,7 @@ class SurRoLEnv(gym.Env):
         p.loadURDF("plane.urdf", (0, 0, -0.001))
         self.obj_ids = {'fixed': [], 'rigid': [], 'deformable': []}
 
-        self.seed(seed)
+        self.seed()
 
         # self.actions = []  # only for demo
         self._env_setup()
@@ -160,7 +160,7 @@ class SurRoLEnv(gym.Env):
         else:
             return rgb_array, mask
 
-    def seed(self, seed):
+    def seed(self, seed=None):
         self._np_random, seed = seeding.np_random(seed)
         return [seed]
 

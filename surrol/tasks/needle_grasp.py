@@ -81,6 +81,7 @@ class NeedleGrasp(PsmEnv):
         # Needle midlink pose
         pos, orn = get_link_pose(self.obj_id, self.obj_link1)
         waypoint_pos = np.array(pos)
+        
         # rotations
         waypoint_rot = np.array(p.getEulerFromQuaternion(orn))
         
@@ -160,70 +161,61 @@ class NeedleGrasp(PsmEnv):
             pose = get_link_pose(self.obj_id, self.obj_link1)
             return pose[0][2] > self._waypoint_z_init + 0.005 * self.SCALING
 
-    '''
+    
     def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info):
         """ All sparse reward.
         The reward is 0 or -1.
         """
-        
-        completion_reward = 3.
 
-        if len(achieved_goal.shape) > 1:
-            reward = np.zeros(info.shape)
-            for i,s in enumerate(info):
-                if s['is_success']:
-                    reward[i] = completion_reward
-                else:
-                    d_x = abs(achieved_goal[i][0] - desired_goal[i][0])
-                    d_y = abs(achieved_goal[i][1] - desired_goal[i][1])
-                    d_z = abs(achieved_goal[i][2] - desired_goal[i][2])
+        # Identify successful transitions
+        success = self._is_success(desired_goal,achieved_goal,info)
 
-                    d = (d_x + d_y + d_z) * 10
+        # Initiates all rewards to -1
+        reward = np.zeros_like(success) - 1.0
 
-                    d = 1/d
-
-                    reward[i] = d
-        else:
-            if info['is_success']:
-                    reward = completion_reward
-            else:
-                d_x = abs(achieved_goal[0] - desired_goal[0])
-                d_y = abs(achieved_goal[1] - desired_goal[1])
-                d_z = abs(achieved_goal[2] - desired_goal[2])
-
-                d = (d_x + d_y + d_z) * 10
-
-                d = 1/d
-
-                reward = d
-                
-        return reward
-
-        
-
-
-
-        # d = goal_distance(achieved_goal, desired_goal)
-        # return - (d > self.distance_threshold).astype(np.float32)
-
+        # Give reward for reaching an approximate area of the grasping point
         d = goal_distance(achieved_goal, desired_goal)
+        distance_condition = (d < self.distance_threshold)
+        reward += distance_condition
 
-        return (d > self.distance_threshold).astype(np.float32)
+        # Add reward for successfully grasping
+        reward += success
+
+        return reward.astype(np.float32)
         
 
-
+   
     def _is_success(self, achieved_goal, desired_goal, info=None):
         """ Indicates whether or not the achieved goal successfully achieved the desired goal.
         """
+        # Distance between the grasping point and EE tip
         d = goal_distance(achieved_goal, desired_goal)
+        distance_condition = (d < self.distance_threshold)
 
-        return (d < self.distance_threshold).astype(np.float32)
-    '''
+
+        # If info provided during reward recalculation
+        if info is not None and isinstance(info,list):
+            grasping_condition = [val['is_success'] for val in info]
+        elif info is not None and isinstance(info,dict):
+            grasping_condition = info['is_success']
+        # If reward measured for storing in the buffer
+        else:
+            grasping_condition = np.not_equal(self._activated,-1)
+        return np.logical_and(distance_condition,grasping_condition).astype(np.float32)
+
+    def _step_callback(self):
+        """ A custom callback that is called after stepping the simulation. Can be used
+        to enforce additional constraints on the simulation state.
+        """
+
+        self.goal = self._sample_goal()  
+        self._sample_goal_callback()
+    
 
     
 if __name__ == "__main__":
 
-    env = NeedleGrasp(render_mode='human',seed=1)  # create one process and corresponding env
+    env = NeedleGrasp(render_mode='human')  # create one process and corresponding env
 
     for _ in range(1):
         env.test()
