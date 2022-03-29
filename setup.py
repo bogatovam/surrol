@@ -27,7 +27,6 @@ if __name__ == '__main__':
             "opencv-python",
             "roboticstoolbox-python",
             "sympy",
-            "wandb"
         ],
         extras_require={
         'stable-baselines3': [
