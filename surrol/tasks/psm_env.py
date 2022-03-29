@@ -59,7 +59,7 @@ class PsmEnv(SurRoLGoalEnv):
     SCALING = 1.
 
     def __init__(self,
-                 render_mode=None,seed=None):
+                 render_mode=None):
         # workspace
         workspace_limits = np.asarray(self.WORKSPACE_LIMITS1) \
                            + np.array([0., 0., 0.0102]).reshape((3, 1))  # tip-eef offset with collision margin
@@ -78,7 +78,7 @@ class PsmEnv(SurRoLGoalEnv):
         # object orientation needs to match the goals
         self.goal_orientation_required = False
 
-        super(PsmEnv, self).__init__(render_mode,seed)
+        super(PsmEnv, self).__init__(render_mode)
 
         # distance_threshold
         self.distance_threshold = self.DISTANCE_THRESHOLD * self.SCALING
