@@ -10,6 +10,7 @@ from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, SubprocVecEnv
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.evaluation import evaluate_policy
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -24,7 +25,7 @@ if __name__ == '__main__':
     model_dir = "./logs/TD3/NeedleGrasp-v0/"
     log_dir = "./logs/TD3/NeedleGrasp-v0/tensorboard/eval"
 
-    seeds = [2,4,9]
+    seeds = [2,3,9]
 
     for run,seed in enumerate(seeds):
 
@@ -34,30 +35,25 @@ if __name__ == '__main__':
 
         #  do not update them at test time
         env.training = False
+        
         # reward normalization is not needed at test time
         env.norm_reward = False
 
         model = TD3.load(model_dir+'TD3_HER_'+env_id+'', env=env, kwargs={'seed': seed})
 
-        obs = env.reset()
+        rewards,ep_lens = evaluate_policy(model=model,
+                            env=env,
+                            n_eval_episodes=50,
+                            deterministic=True,
+                            render=True,
+                            return_episode_rewards=True)
 
-        for trial in range(100):
-            done = [False]
-            obs = env.reset()
-            steps = 0
-            total_reward = 0
-            success = False
-            while not done[0] and steps < 50:
-                action, _ = model.predict(obs, deterministic=False)
-                obs, reward, done, info = env.step(action)
-                steps += 1
-                total_reward += reward[0]
-                success = info[0]['is_success']
 
-            
-                writer.add_scalar('Total reward', total_reward,trial)
-                writer.add_scalar('Episode length', steps,trial)
-                writer.add_scalar('Success', success, trial)
+        for trial,(r,l) in enumerate(zip(rewards,ep_lens)):
+
+            writer.add_scalar('Total reward', r, trial)
+            writer.add_scalar('Episode length', l, trial)
+
         
         writer.close()
 
