@@ -56,6 +56,36 @@ class NeedlePick(PsmEnv):
         self.obj_ids['rigid'].append(obj_id)  # 0
         self.obj_id, self.obj_link1 = self.obj_ids['rigid'][0], 1
 
+    def _get_obs(self) -> dict:
+
+        robot_state = self._get_robot_state(idx=0)
+        # TODO: may need to modify
+
+        # Needle baselink position
+        #pos, _ = get_link_pose(self.obj_id, -1)
+        #object_pos = np.array(pos)
+
+        # Needle midlink pose
+        pos, orn = get_link_pose(self.obj_id, self.obj_link1)
+        waypoint_pos = np.array(pos)
+        
+        # rotations
+        waypoint_rot = np.array(p.getEulerFromQuaternion(orn))
+        
+        achieved_goal = np.array(get_link_pose(self.psm1.body, self.psm1.TIP_LINK_INDEX)[0])
+
+        observation = np.concatenate([
+            robot_state, waypoint_pos.ravel(),
+            waypoint_rot.ravel()
+        ])
+
+        obs = {
+            'observation': observation.copy(),
+            'achieved_goal': achieved_goal.copy(),
+            'desired_goal': self.goal.copy()
+        }
+        return obs
+
     def _sample_goal(self) -> np.ndarray:
         """ Samples a new goal and returns it.
         """
