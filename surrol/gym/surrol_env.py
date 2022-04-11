@@ -83,11 +83,21 @@ class SurRoLEnv(gym.Env):
             self.observation_space = spaces.Box(-np.inf, np.inf, shape=obs.shape, dtype='float32')
         elif isinstance(obs, dict):
             # gym.GoalEnv
-            self.observation_space = spaces.Dict(dict(
-                desired_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
-                achieved_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
-                observation=spaces.Box(-np.inf, np.inf, shape=obs['observation'].shape, dtype='float32'),
-            ))
+
+            if self.multi_goal:
+                self.observation_space = spaces.Dict(dict(
+                    desired_goal1=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
+                    desired_goal2=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
+                    achieved_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
+                    observation=spaces.Box(-np.inf, np.inf, shape=obs['observation'].shape, dtype='float32'),
+                ))
+                
+            else:
+                self.observation_space = spaces.Dict(dict(
+                    desired_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
+                    achieved_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
+                    observation=spaces.Box(-np.inf, np.inf, shape=obs['observation'].shape, dtype='float32'),
+                ))
         else:
             raise NotImplementedError
 

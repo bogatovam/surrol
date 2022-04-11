@@ -79,11 +79,21 @@ class NeedlePick(PsmEnv):
             waypoint_rot.ravel()
         ])
 
-        obs = {
-            'observation': observation.copy(),
-            'achieved_goal': achieved_goal.copy(),
-            'desired_goal': self.goal.copy()
-        }
+        if self.multi_goal:
+            obs = {
+                'observation': observation.copy(),
+                'achieved_goal': achieved_goal.copy(),
+                'desired_goal1': np.array(waypoint_pos),
+                'desired_goal2': self.goal.copy(),
+            }
+
+        else:
+            obs = {
+                'observation': observation.copy(),
+                'achieved_goal': achieved_goal.copy(),
+                'desired_goal': self.goal.copy()
+            }
+            
         return obs
 
     def _sample_goal(self) -> np.ndarray:

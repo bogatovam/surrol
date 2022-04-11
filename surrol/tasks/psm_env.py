@@ -66,6 +66,9 @@ class PsmEnv(SurRoLGoalEnv):
         workspace_limits *= self.SCALING  # use scaling for more stable collistion simulation
         self.workspace_limits1 = workspace_limits
 
+        # Use MultiGoal method
+        self.multi_goal = True
+         
         # has_object
         self.has_object = False
         self._waypoint_goal = False

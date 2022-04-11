@@ -14,6 +14,7 @@ from stable_baselines3.common.type_aliases import GymEnv, Schedule, RolloutRetur
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.utils import should_collect_more_steps
+from stable_baselines3.common.utils import polyak_update
 
 
 class TD3_HER_DEMO(TD3):
