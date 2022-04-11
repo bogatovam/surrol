@@ -1,7 +1,3 @@
-[submodule "baselines"]
-	path = baselines
-	url = git@github.com:rokas-bendikas/baselines.git
-	branch = SurRol
 [submodule "stable-baselines3"]
 	path = stable-baselines3
 	url = git@github.com:rokas-bendikas/stable-baselines3.git
