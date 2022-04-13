@@ -2,11 +2,13 @@ import os
 import gym
 import numpy as np
 from matplotlib import pyplot as plt
+import stable_baselines3
 import torch
 
 import surrol
-from surrol.algorithms import TD3_HER_DEMO
 
+from stable_baselines3 import TD3, TD3MultiGoal, HerMultiGoal
+from stable_baselines3 import HerReplayBuffer
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, SubprocVecEnv
 from stable_baselines3.common.monitor import Monitor
@@ -63,32 +65,32 @@ if __name__ == '__main__':
     max_episode_length = 50
     total_timesteps = 7e5
     save_frequency = 50000
-    learning_starts = 20000
+    learning_starts = 100
     lr = 4e-5
-    buffer_size = 800000
+    buffer_size = 200000
     batch_size = 2048
     log_dir = "./logs/TD3/"+env_id+"/"
     seed=1
     tau = 0.01
     gamma = 0.95
-    oracle_actions = False
+    alpha = 0.1
 
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed) 
+    env = make_vec_env(env_id,1,seed,monitor_dir=log_dir,env_kwargs={'render_mode':'humans'})
 
-    env = make_vec_env(env_id,1,seed,monitor_dir=log_dir,env_kwargs={'render_mode':'humans','seed':seed})
-
-    env = VecNormalize(env,norm_obs=True)
+    env = VecNormalize(env,norm_obs=False,norm_reward=False)
 
     n_actions = env.action_space.shape[-1]
     action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
 
-    model = TD3_HER_DEMO('MultiInputPolicy', 
+    #prior_model = TD3.load('./logs/TD3/NeedleGrasp-v0/TD3_HER_NeedleGrasp-v0_200000_steps.zip',env=env)
+
+    model = TD3MultiGoal('MultiInputPolicy', 
         env,
         action_noise=action_noise,
         batch_size = batch_size,
+        replay_buffer_class=HerMultiGoal,
+        #prior_model=prior_model,
+        #alpha=alpha,
         learning_starts = learning_starts,
         policy_kwargs= dict(net_arch=[512, 1024, 512]),
         buffer_size=buffer_size,  
@@ -101,12 +103,11 @@ if __name__ == '__main__':
         ),
         learning_rate=lr,
         tau=tau,
-        warmup_oracle_actions = oracle_actions,
         gamma=gamma,
         train_freq=1,
         gradient_steps=1,
         verbose=1,
-        tensorboard_log=log_dir+"./tensorboard/",
+        #tensorboard_log=log_dir+"./tensorboard/",
         seed=seed)
     
     checkpoint_callback = ModelEnvCheckpointCallback(save_freq=save_frequency, save_path=log_dir,
