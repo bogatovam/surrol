@@ -4,6 +4,8 @@ import socket
 import gym
 from gym import spaces
 from gym.utils import seeding
+from matplotlib import collections
+import random
 
 import pybullet as p
 import pybullet_data
@@ -13,9 +15,13 @@ from surrol.utils.pybullet_utils import (
     render_image,
 )
 import numpy as np
+from typing import Union
+from collections import OrderedDict
 
 RENDER_HEIGHT = 480  # train
 RENDER_WIDTH = 640
+
+
 # RENDER_HEIGHT = 1080  # record
 # RENDER_WIDTH = 1920
 
@@ -28,7 +34,7 @@ class SurRoLEnv(gym.Env):
 
     metadata = {'render.modes': ['human', 'rgb_array', 'img_array']}
 
-    def __init__(self, render_mode: str = None):
+    def __init__(self, render_mode: str = None, seed: int = None):
         # rendering and connection options
         self._render_mode = render_mode
         # render_mode = 'human'
@@ -42,7 +48,7 @@ class SurRoLEnv(gym.Env):
             self.cid = p.connect(p.DIRECT)
             # See PyBullet Quickstart Guide Synthetic Camera Rendering
             # TODO: no light when using direct without egl
-            if socket.gethostname().startswith('pc') or True:
+            if socket.gethostname().startswith('pc'):
                 # TODO: not able to run on remote server
                 egl = pkgutil.get_loader('eglRenderer')
                 plugin = p.loadPlugin(egl.get_filename(), "_eglRendererPlugin")
@@ -64,7 +70,7 @@ class SurRoLEnv(gym.Env):
         p.loadURDF("plane.urdf", (0, 0, -0.001))
         self.obj_ids = {'fixed': [], 'rigid': [], 'deformable': []}
 
-        self.seed()
+        self.seed(seed)
 
         # self.actions = []  # only for demo
         self._env_setup()
@@ -104,7 +110,7 @@ class SurRoLEnv(gym.Env):
         self._step_callback()
         obs = self._get_obs()
 
-        done = False
+        done = self._is_success(obs['achieved_goal'], self.goal)
         info = {
             'is_success': self._is_success(obs['achieved_goal'], self.goal),
         } if isinstance(obs, dict) else {'achieved_goal': None}
@@ -155,7 +161,9 @@ class SurRoLEnv(gym.Env):
         else:
             return rgb_array, mask
 
-    def seed(self, seed=None):
+    def seed(self, seed):
+        random.seed(seed)
+        np.random.seed(seed)
         self._np_random, seed = seeding.np_random(seed)
         return [seed]
 
@@ -204,11 +212,25 @@ class SurRoLEnv(gym.Env):
     def action_size(self):
         raise NotImplementedError
 
+    def _check_vec_obs_format(self, obs: Union[OrderedDict, dict, list]) -> np.ndarray:
+
+        if isinstance(obs, list):
+            obs = obs[0].copy()
+
+        for key in obs.keys():
+            if len(obs[key].shape) > 1:
+                obs[key] = obs[key].reshape(-1)
+
+        return obs
+
     def get_oracle_action(self, obs) -> np.ndarray:
         """
         Define a scripted oracle strategy
         """
-        raise NotImplementedError
+        obs = self._check_vec_obs_format(obs)
+        action = self.get_oracle_action_task_specific(obs)
+
+        return action
 
     def test(self, horizon=100):
         """
