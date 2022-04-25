@@ -67,7 +67,7 @@ class PsmEnv(SurRoLGoalEnv):
         self.workspace_limits1 = workspace_limits
 
         # Use MultiGoal method
-        self.multi_goal = True
+        self.multi_goal = False
          
         # has_object
         self.has_object = False

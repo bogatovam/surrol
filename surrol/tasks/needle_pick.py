@@ -24,6 +24,9 @@ class NeedlePick(PsmEnv):
         self.has_object = True
         self._waypoint_goal = True
 
+        # Use MultiGoal method
+        self.multi_goal = True
+
         # robot
         workspace_limits = self.workspace_limits1
         pos = (workspace_limits[0][0],
@@ -58,43 +61,39 @@ class NeedlePick(PsmEnv):
 
     def _get_obs(self) -> dict:
 
+        # Tip position (3), orientation (3), gripper state (1) in world frame
         robot_state = self._get_robot_state(idx=0)
-        # TODO: may need to modify
-
-        # Needle baselink position
-        #pos, _ = get_link_pose(self.obj_id, -1)
-        #object_pos = np.array(pos)
 
         # Needle midlink pose
         pos, orn = get_link_pose(self.obj_id, self.obj_link1)
-        waypoint_pos = np.array(pos)
-        
-        # rotations
-        waypoint_rot = np.array(p.getEulerFromQuaternion(orn))
-        
-        achieved_goal = np.array(get_link_pose(self.psm1.body, self.psm1.TIP_LINK_INDEX)[0])
+        needle_midlink_pos = np.array(pos)
+        needle_midlink_rot = np.array(p.getEulerFromQuaternion(orn))
 
+        # Needle midlink position
+        achieved_goal = needle_midlink_pos
+
+        # Obs: Robot state, needle pose
         observation = np.concatenate([
-            robot_state, waypoint_pos.ravel(),
-            waypoint_rot.ravel()
+            robot_state, needle_midlink_pos.ravel(),
+            needle_midlink_rot.ravel()
         ])
+        
 
-        if self.multi_goal:
-            obs = {
-                'observation': observation.copy(),
-                'achieved_goal': achieved_goal.copy(),
-                'desired_goal1': np.array(waypoint_pos),
-                'desired_goal2': self.goal.copy(),
-            }
-
-        else:
-            obs = {
-                'observation': observation.copy(),
-                'achieved_goal': achieved_goal.copy(),
-                'desired_goal': self.goal.copy()
-            }
+        obs = {
+            'observation': observation.copy(),
+            'achieved_goal': achieved_goal.copy(),
+            'desired_goal': self.goal.copy()
+        }
             
         return obs
+
+    def get_goal1(self):
+        """ Samples a needle midlink pose and returns it as intermediate goal.
+        """
+        pos,_ = get_link_pose(self.obj_id, self.obj_link1)
+        return np.array(pos)
+
+
 
     def _sample_goal(self) -> np.ndarray:
         """ Samples a new goal and returns it.

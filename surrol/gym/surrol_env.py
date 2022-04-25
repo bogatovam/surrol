@@ -34,6 +34,7 @@ class SurRoLEnv(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array', 'img_array']}
 
     def __init__(self, render_mode: str = None):
+        self.multi_goal = False
         # rendering and connection options
         self._render_mode = render_mode
         # render_mode = 'human'
@@ -83,21 +84,11 @@ class SurRoLEnv(gym.Env):
             self.observation_space = spaces.Box(-np.inf, np.inf, shape=obs.shape, dtype='float32')
         elif isinstance(obs, dict):
             # gym.GoalEnv
-
-            if self.multi_goal:
-                self.observation_space = spaces.Dict(dict(
-                    desired_goal1=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
-                    desired_goal2=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
-                    achieved_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
-                    observation=spaces.Box(-np.inf, np.inf, shape=obs['observation'].shape, dtype='float32'),
-                ))
-                
-            else:
-                self.observation_space = spaces.Dict(dict(
-                    desired_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
-                    achieved_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
-                    observation=spaces.Box(-np.inf, np.inf, shape=obs['observation'].shape, dtype='float32'),
-                ))
+            self.observation_space = spaces.Dict(dict(
+                desired_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
+                achieved_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
+                observation=spaces.Box(-np.inf, np.inf, shape=obs['observation'].shape, dtype='float32'),
+            ))
         else:
             raise NotImplementedError
 
@@ -123,6 +114,9 @@ class SurRoLEnv(gym.Env):
         info = {
             'is_success': self._is_success(obs['achieved_goal'], self.goal),
         } if isinstance(obs, dict) else {'achieved_goal': None}
+
+        if self.multi_goal:
+            info['desired_goal1'] = self.get_goal1()
         if isinstance(obs, dict):
             reward = self.compute_reward(obs['achieved_goal'], self.goal, info)
         else:
@@ -151,7 +145,12 @@ class SurRoLEnv(gym.Env):
         p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1)
 
         obs = self._get_obs()
-        return obs
+
+        if self.multi_goal:
+            info = {'desired_goal1': self.get_goal1()}
+            return obs, info
+
+        return obs,None
 
     def close(self):
         if self.cid >= 0:
