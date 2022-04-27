@@ -1,135 +1,75 @@
 import copy
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from surrol.algorithms.buffer import ReplayBuffer
+from surrol.algorithms.TD3.actor import Actor 
+from surrol.algorithms.TD3.critic import Critic 
+from surrol.algorithms.buffer import ReplayBuffer,her_sampler
 
 import gym
-from gym.spaces.dict import Dict
 import surrol
 
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-def preprocess_obs(state):
-	if isinstance(state,dict):
-		state = np.concatenate((state['observation'],state['desired_goal']),-1)
-
-	return state
-
-
-class Actor(nn.Module):
-	def __init__(self, state_dim, action_dim, max_action):
-		super(Actor, self).__init__()
-		
-		l1 = nn.Linear(state_dim, 512)
-		l2 = nn.Linear(512, 1024)
-		l3 = nn.Linear(1024, 512)
-		l4 = nn.Linear(512, action_dim)
-
-		self.A = nn.Sequential(l1,nn.ReLU(),l2,nn.ReLU(),l3,nn.ReLU(),l4)
-		
-		self.max_action = max_action
-		
-	def forward(self, state):
-		
-		state = preprocess_obs(state)
-		out = self.A(state)
-		
-		return self.max_action * torch.tanh(out)
-
-
-class Critic(nn.Module):
-	def __init__(self,state_dim, action_dim):
-		super(Critic, self).__init__()
-
-		# Q1 architecture
-		l1 = nn.Linear(state_dim+action_dim,512)
-		l2 = nn.Linear(512,1024)
-		l3 = nn.Linear(1024,512)
-		l4 = nn.Linear(512,1)
-
-		self.C1 = nn.Sequential(l1,nn.ReLU(),l2,nn.ReLU(),l3,nn.ReLU(),l4)
-
-		# Q2 architecture
-		l5 = nn.Linear(state_dim+action_dim,512)
-		l6 = nn.Linear(512,1024)
-		l7 = nn.Linear(1024,512)
-		l8 = nn.Linear(512,1)
-
-		self.C2 = nn.Sequential(l5,nn.ReLU(),l6,nn.ReLU(),l7,nn.ReLU(),l8)
-
-
-	def forward(self,state, action):
-
-		state = preprocess_obs(state)
-
-		input = torch.cat([state,action],1)
-
-		q1 = self.C1(input)
-		q2 = self.C2(input)
-
-		return q1,q2
-
-
-
-	def Q1(self,state,action):
-
-		state = preprocess_obs(state)
-
-		input = torch.cat([state,action],1)
-
-		q1 = self.C1(input)
-
-		return q1
-
 
 class TD3:
 	def __init__(
 		self,
-		state_dim,
-		action_dim,
-		max_action,
-		num_goals,
-		lr=1e-4,
-		discount=0.99,
-		tau=0.005,
-		policy_noise=0.2,
-		noise_clip=0.5,
-		policy_freq=2
+		env,
+		args,
+		writer = None
 	):
 
-		self.actor = Actor(state_dim, action_dim, max_action).to(device)
-		self.actor_target = copy.deepcopy(self.actor)
-		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=lr)
+		# Determine number of goals
+		self.num_goals = env.num_goals
 
+		# Space params
+		state_dim, action_dim, self.max_action = self._get_space_parameters(env)
+
+		# Create actor 
+		self.actor = Actor(state_dim, action_dim, self.max_action).to(device)
+		self.actor_target = copy.deepcopy(self.actor)
+		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=args['lr'])
+
+		# Create critic
 		self.critic = Critic(state_dim, action_dim).to(device)
 		self.critic_target = copy.deepcopy(self.critic)
-		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr)
+		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=args['lr'])
 
-		self.max_action = max_action
-		self.discount = discount
-		self.tau = tau
-		self.policy_noise = policy_noise
-		self.noise_clip = noise_clip
-		self.policy_freq = policy_freq
+		# Save hyperparameters
+		self.discount = args['discount']
+		self.tau = args['tau']
+		self.policy_noise = args['policy_noise']
+		self.noise_clip = args['noise_clip']
+		self.policy_freq = args['policy_freq']
 
-		self.num_goals = num_goals
-
+		# Flags
 		self.total_it = 0
 
+		# Create HER sampler and replay buffer
+		sampler = her_sampler(args['replay_k'], self.num_goals, env.compute_reward, env.is_success)
+		self.replay_buffer = ReplayBuffer(self.num_goals, env, args['buffer_size'], sampler.sample_her_transitions)
 
-	def select_action(self, state):
-		state = preprocess_obs(state)
-		state = torch.FloatTensor(state.reshape(1, -1)).to(device)
+		# Tensorboard agent
+		self.writer = writer
+
+
+	def select_action(self, state, goal=None):
+		state = self._preprocess_state(state, goal)
 		return self.actor(state).cpu().data.numpy().flatten()
+	
 
-
-	def train(self,buffer, batch_size=256):
+	def train(self, batch_size):
 		self.total_it += 1
 
 		# Sample replay buffer 
-		state, action, next_state, reward, done = buffer.sample_goal_specific(batch_size,1)
+		batch = self.replay_buffer._sample(batch_size)
+
+		# Preprocess sampled batch
+		if self.num_goals > 1:
+			state, action, reward, next_state, done = self._preprocess_batch(batch,self.num_goals)
+		else:
+			state, action, reward, next_state, done = self._preprocess_batch(batch)
 
 		with torch.no_grad():
 			# Select action according to policy and add clipped noise
@@ -142,15 +82,18 @@ class TD3:
 			).clamp(-self.max_action, self.max_action)
 
 			# Compute the target Q value
-			target_Q1, target_Q2 = self.critic_target(next_state, next_action)
-			target_Q = torch.min(target_Q1, target_Q2)
+			target_q1, target_q2 = self.critic_target(next_state, next_action)
+			target_Q = torch.min(target_q1, target_q2)
 			target_Q = reward + (1.0-done) * self.discount * target_Q
 
 		# Get current Q estimates
-		current_Q1, current_Q2 = self.critic(state, action)
+		current_q1, current_q2 = self.critic(state, action)
 
 		# Compute critic loss
-		critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q)
+		critic_loss = F.mse_loss(current_q1, target_Q) + F.mse_loss(current_q2, target_Q)
+
+		# Log critic loss on tensorboard
+		self.writer.add_scalar('Train/critic_loss', critic_loss.item(), self.total_it)
 
 		# Optimize the critic
 		self.critic_optimizer.zero_grad()
@@ -162,6 +105,9 @@ class TD3:
 
 			# Compute actor losse
 			actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
+
+			# Log actor loss on tensorboard
+			self.writer.add_scalar('Train/actor_loss', actor_loss.item(), self.total_it)
 			
 			# Optimize the actor 
 			self.actor_optimizer.zero_grad()
@@ -192,6 +138,60 @@ class TD3:
 		self.actor.load_state_dict(torch.load(filename + "_actor"))
 		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer"))
 		self.actor_target = copy.deepcopy(self.actor)
+
+	def load_network_params(self, params):
+		actor_params, critic_params = params
+		self.critic.load_state_dict(critic_params)
+		self.critic_target = copy.deepcopy(self.critic)
+		self.actor.load_state_dict(actor_params)
+		self.actor_target = copy.deepcopy(self.actor)
+
+	def get_network_params(self):
+		critic = copy.deepcopy(self.critic.state_dict())
+		actor = copy.deepcopy(self.actor.state_dict())
+		
+		return [actor, critic]
+
+	def _preprocess_batch(self,batch,goal=None):
+
+		if goal:
+			state = torch.Tensor(np.concatenate((batch['observation'],batch['desired_goal'+str(goal)]),1)).to(device)
+		else:
+			state = torch.Tensor(np.concatenate((batch['observation'],batch['desired_goal']),1)).to(device)
+		action = torch.Tensor(batch['action']).to(device)
+		reward = torch.Tensor(batch['reward']).to(device)
+		if goal:
+			next_state = torch.Tensor(np.concatenate((batch['next_observation'],batch['desired_goal'+str(goal)]),1)).to(device)
+		else:
+			next_state = torch.Tensor(np.concatenate((batch['next_observation'],batch['desired_goal']),1)).to(device)
+		done = torch.Tensor(batch['done']).to(device)
+
+		return state, action, reward, next_state, done
+
+	def _preprocess_state(self, state, goal=None):
+		if not goal:
+			state = np.concatenate((state['observation'],state['desired_goal']),-1)
+		else:
+			state = np.concatenate((state['observation'],state['desired_goal'+str(goal)]),-1)
+
+		state = torch.FloatTensor(state.reshape(1, -1)).to(device)
+
+		return state
+
+
+	def _get_space_parameters(self, env):
+		# Get spaces parameters
+		state_dim = 0
+		state_dim += env.observation_space.spaces['observation'].shape[0]
+		if self.num_goals > 1:
+			state_dim += env.observation_space.spaces['desired_goal1'].shape[0]
+		else:
+			state_dim += env.observation_space.spaces['desired_goal'].shape[0]
+		action_dim = env.action_space.shape[0]
+		max_action = float(env.action_space.high[0])
+
+		return state_dim, action_dim, max_action
+
 
 
 
