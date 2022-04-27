@@ -95,7 +95,8 @@ class NeedleGrasp(PsmEnv):
         obs = {
             'observation': observation.copy(),
             'achieved_goal': achieved_goal.copy(),
-            'desired_goal': self.goal.copy()
+            'desired_goal1': self.goal.copy(),
+            'desired_goal2': self.goal.copy()
         }
         return obs
 
@@ -183,7 +184,6 @@ class NeedleGrasp(PsmEnv):
 
         return reward.astype(np.float32)
         
-
    
     def _is_success(self, achieved_goal, desired_goal, info=None):
         """ Indicates whether or not the achieved goal successfully achieved the desired goal.
@@ -210,6 +210,10 @@ class NeedleGrasp(PsmEnv):
 
         self.goal = self._sample_goal()  
         self._sample_goal_callback()
+
+    @property
+    def num_goals(self):
+        return 2
     
 
     

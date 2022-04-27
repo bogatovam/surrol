@@ -34,7 +34,6 @@ class SurRoLEnv(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array', 'img_array']}
 
     def __init__(self, render_mode: str = None):
-        self.multi_goal = False
         # rendering and connection options
         self._render_mode = render_mode
         # render_mode = 'human'
@@ -79,16 +78,30 @@ class SurRoLEnv(gym.Env):
         self._sample_goal_callback()
         obs = self._get_obs()
         self.action_space = spaces.Box(-1., 1., shape=(self.action_size,), dtype='float32')
+        # gym.Env
         if isinstance(obs, np.ndarray):
-            # gym.Env
             self.observation_space = spaces.Box(-np.inf, np.inf, shape=obs.shape, dtype='float32')
+        # gym.GoalEnv
         elif isinstance(obs, dict):
-            # gym.GoalEnv
-            self.observation_space = spaces.Dict(dict(
-                desired_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
-                achieved_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
-                observation=spaces.Box(-np.inf, np.inf, shape=obs['observation'].shape, dtype='float32'),
-            ))
+            # If multigoal env
+            if self.num_goals > 1:
+                obs_dict = dict(
+                    achieved_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
+                    observation=spaces.Box(-np.inf, np.inf, shape=obs['observation'].shape, dtype='float32'),
+                )
+
+                for i in range(self.num_goals):
+                    obs_dict['desired_goal'+str(i+1)] = spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32')
+            # If single-goal environment
+            else:
+                obs_dict = dict(
+                    desired_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
+                    achieved_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
+                    observation=spaces.Box(-np.inf, np.inf, shape=obs['observation'].shape, dtype='float32'),
+                )
+
+            self.observation_space = spaces.Dict(obs_dict)
+
         else:
             raise NotImplementedError
 
@@ -115,8 +128,6 @@ class SurRoLEnv(gym.Env):
             'is_success': self._is_success(obs['achieved_goal'], self.goal),
         } if isinstance(obs, dict) else {'achieved_goal': None}
 
-        if self.multi_goal:
-            info['desired_goal1'] = self.get_goal1()
         if isinstance(obs, dict):
             reward = self.compute_reward(obs['achieved_goal'], self.goal, info)
         else:
@@ -146,11 +157,19 @@ class SurRoLEnv(gym.Env):
 
         obs = self._get_obs()
 
-        if self.multi_goal:
-            info = {'desired_goal1': self.get_goal1()}
-            return obs, info
+        return obs
 
-        return obs,None
+    def is_success(self, achieved_goal, desired_goal, info=None):
+        return self._is_success(achieved_goal, desired_goal)
+
+    def get_space_dims(self):
+
+        # Dimensions for action, state and goal observations
+        action_dim = self.action_space.shape[0]
+        obs_dim = self.observation_space['observation'].shape[0]
+        goal_dim = self.observation_space['achieved_goal'].shape[0]
+
+        return obs_dim, goal_dim, action_dim
 
     def close(self):
         if self.cid >= 0:
@@ -217,6 +236,10 @@ class SurRoLEnv(gym.Env):
     @property
     def action_size(self):
         raise NotImplementedError
+
+    @property
+    def num_goals(self):
+        return 1
 
     def _check_vec_obs_format(self, obs: Union[OrderedDict, dict, list]) -> np.ndarray:
 

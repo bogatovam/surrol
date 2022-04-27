@@ -24,9 +24,6 @@ class NeedlePick(PsmEnv):
         self.has_object = True
         self._waypoint_goal = True
 
-        # Use MultiGoal method
-        self.multi_goal = True
-
         # robot
         workspace_limits = self.workspace_limits1
         pos = (workspace_limits[0][0],
@@ -82,7 +79,8 @@ class NeedlePick(PsmEnv):
         obs = {
             'observation': observation.copy(),
             'achieved_goal': achieved_goal.copy(),
-            'desired_goal': self.goal.copy()
+            'desired_goal1': self.goal.copy(),
+            'desired_goal2': self.goal.copy(),
         }
             
         return obs
