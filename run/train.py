@@ -17,23 +17,23 @@ if __name__ == "__main__":
 	# Load the hyperparameters
 	with open(os.path.dirname(os.path.realpath(__file__)) + '/cfg/NeedleReach-v0.yaml') as f:
 		args = yaml.safe_load(f)
-	
+
 	# Print initial setting
 	file_name = f"{'TD3'}_{args['env']}_{args['seed']}"
 	print("---------------------------------------")
 	print(f"Policy: {'TD3'}, Env: {args['env']}, Seed: {args['seed']}")
 	print("---------------------------------------")
-	
+
 	# Create required dirs
 	if not os.path.exists("./logs1"):
 		os.makedirs("./logs1")
 	if args['save_model'] and not os.path.exists("./models"):
 		os.makedirs("./models")
-	
+
 	# Create the environment
 	env_kwargs = {"render_mode": args['render_mode']}
 	env = gym.make(args['env'], **env_kwargs)
-	
+
 	# Set seeds
 	env.seed(args['seed'])
 	env.action_space.seed(args['seed'])
@@ -47,15 +47,14 @@ if __name__ == "__main__":
 	policy = Agent(env, TD3, writer, args)
 
 	policy.learn(args['max_timesteps'])
-	
 
-	
-   
 
-	
 
-	
-	
 
-	
-		
+
+
+
+
+
+
+

@@ -266,7 +266,7 @@ class SurRoLEnv(gym.Env):
         Run the test simulation without any learning algorithm for debugging purposes
         """
         steps, done = 0, False
-        obs = self.reset()
+        obs, _ = self.reset()
         while not done and steps <= horizon:
             tic = time.time()
             action = self.get_oracle_action(obs)
