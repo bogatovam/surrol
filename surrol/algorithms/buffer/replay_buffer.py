@@ -44,15 +44,24 @@ class ReplayBuffer:
     def _sample(self, batch_size):
 
         # Create empty batch structure
-        temp_buffer = dict()
+        temp_buffer = {'info': dict()}
 
         # Copy the allocated replay buffer data
         for key in self._buffer.keys():
-            temp_buffer[key] = self._buffer[key][:self.num_trajectories_stored]
+            if key == 'info':
+                for info_key in self._buffer['info'].keys():
+                    temp_buffer['info'][info_key] = self._buffer[key][info_key][:self.num_trajectories_stored]
+            else:
+                temp_buffer[key] = self._buffer[key][:self.num_trajectories_stored]
 
         # Create next values by shifting current values by one
         temp_buffer['next_observation'] = temp_buffer['observation'][:,1:,:]
         temp_buffer['next_achieved_goal'] = temp_buffer['achieved_goal'][:,1:,:]
+        
+        next_infos = {}
+        for key, val in temp_buffer['info'].items():
+            next_infos[key] = val[:,1:,:]
+        temp_buffer['next_info'] = next_infos
 
         # Sample from temporary buffer using sampling function (i.e. HER)
         batch = self.sample_function(temp_buffer, batch_size)
@@ -73,17 +82,21 @@ class ReplayBuffer:
         if self.num_goals > 1:
             # Initialise storage for multiple goals
             for i in range(self.num_goals):
-                self._buffer['desired_goal'+str(i+1)] = np.zeros((self.max_size,self.T + 1,goal_dim))
+                self._buffer['desired_goal'+str(i+1)] = np.zeros((self.max_size,self.T + 1, goal_dim))
         else:
             # Initialise storage for a single goal
-            self._buffer['desired_goal'] = np.zeros((self.max_size,self.T + 1,goal_dim))
+            self._buffer['desired_goal'] = np.zeros((self.max_size,self.T + 1, goal_dim))
+
+        self._buffer['info'] = dict()
+        for key, val in self.env.env.info_space.items():
+            self._buffer['info'][key] = np.zeros((self.max_size, self.T + 1, val.shape[0]))
 
 
 
     def _store_transitions(self, episode):
 
         # Unpack episode batch, shape [batch_size,:]
-        observations, achieved_goals, desired_goals, actions = episode
+        observations, achieved_goals, desired_goals, actions, infos = episode
         batch_size = observations.shape[0]
 
         # Get idx defining where to store on the ring buffer
@@ -98,6 +111,9 @@ class ReplayBuffer:
                 self._buffer['desired_goal'+str(i+1)][idx] = desired_goals[:,:,i,:]
         else:
             self._buffer['desired_goal'][idx] = desired_goals[:,:,0,:]
+
+        for key, val in infos.items():
+            self._buffer['info'][key][idx] = val
 
         # Update total count of transitions stored
         self.num_transitions_stored = min(batch_size * self.T + self.num_transitions_stored, 
