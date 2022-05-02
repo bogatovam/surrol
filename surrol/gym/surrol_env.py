@@ -78,6 +78,7 @@ class SurRoLEnv(gym.Env):
         self._sample_goal_callback()
         obs = self._get_obs()
         self.action_space = spaces.Box(-1., 1., shape=(self.action_size,), dtype='float32')
+        self.info_space = self._get_info_space()
         # gym.Env
         if isinstance(obs, np.ndarray):
             self.observation_space = spaces.Box(-np.inf, np.inf, shape=obs.shape, dtype='float32')
@@ -122,11 +123,8 @@ class SurRoLEnv(gym.Env):
         # print(" -> robot action time: {:.6f}, simulation time: {:.4f}".format(time1 - time0, time2 - time1))
         self._step_callback()
         obs = self._get_obs()
-
-        done = self._is_success(obs['achieved_goal'], self.goal)
-        info = {
-            'is_success': self._is_success(obs['achieved_goal'], self.goal),
-        } if isinstance(obs, dict) else {'achieved_goal': None}
+        info = self.get_info(obs)
+        done = self._is_success(obs['achieved_goal'], self.goal, info)
 
         if isinstance(obs, dict):
             reward = self.compute_reward(obs['achieved_goal'], self.goal, info)
@@ -159,8 +157,8 @@ class SurRoLEnv(gym.Env):
 
         return obs
 
-    def is_success(self, achieved_goal, desired_goal, info=None):
-        return self._is_success(achieved_goal, desired_goal)
+    def is_success(self, achieved_goal, desired_goal, info):
+        return self._is_success(achieved_goal, desired_goal, info)
 
     def get_space_dims(self):
 
@@ -170,6 +168,13 @@ class SurRoLEnv(gym.Env):
         goal_dim = self.observation_space['achieved_goal'].shape[0]
 
         return obs_dim, goal_dim, action_dim
+
+    def _get_info_space(self):
+
+        info_space = dict()
+
+        return info_space
+
 
     def close(self):
         if self.cid >= 0:
@@ -191,6 +196,9 @@ class SurRoLEnv(gym.Env):
     def seed(self, seed=None):
         self._np_random, seed = seeding.np_random(seed)
         return [seed]
+
+    def get_info(self, obs):
+        {'is_success': self._is_success(obs['achieved_goal'], self.goal),} if isinstance(obs, dict) else {'achieved_goal': None}
 
     def compute_reward(self, achieved_goal, desired_goal, info):
         raise NotImplementedError
@@ -278,7 +286,7 @@ class SurRoLEnv(gym.Env):
                 print(" -> desired goal: {}".format(np.round(obs['desired_goal'], 4)))
             else:
                 print(" -> achieved goal: {}".format(np.round(info['achieved_goal'], 4)))
-            done = info['is_success'] if isinstance(obs, dict) else done
+            done = self._is_success(obs['achieved_goal'], obs['desired_goal'], info)
             steps += 1
             toc = time.time()
             print(" -> reward: {}".format(np.round(reward, 4)))
