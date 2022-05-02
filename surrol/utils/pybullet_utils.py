@@ -862,12 +862,14 @@ def render_image(width, height, view_matrix, proj_matrix, shadow=1):
 
 # Plotting
 
-def plot_coordinate_frame(object, link=-1, lifeTime = None):
+def plot_coordinate_frame(object, link=-1, lifeTime = None, offsets = [0,0,0]):
 
     if not lifeTime:
         lifeTime = 0
 
-    pos, orn = get_link_pose(object, link)
+    pos1, orn = get_link_pose(object, link)
+
+    pos = [a + b for a,b in zip(pos1,offsets)]
 
     rot_matrix = p.getMatrixFromQuaternion(orn) 
 

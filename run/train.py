@@ -11,11 +11,14 @@ from surrol.algorithms.TD3 import TD3
 
 if __name__ == "__main__":
 
+	# Config file
+	cfg_file = 'NeedleGrasp-v0.yaml'
+
 	# Required to start pybullet on a seperate thread
 	mp.set_start_method('spawn')
 
 	# Load the hyperparameters
-	with open(os.path.dirname(os.path.realpath(__file__)) + '/cfg/NeedleReach-v0.yaml') as f:
+	with open(os.path.dirname(os.path.realpath(__file__)) + '/cfg/' + cfg_file) as f:
 		args = yaml.safe_load(f)
 
 	# Print initial setting
@@ -41,7 +44,7 @@ if __name__ == "__main__":
 	np.random.seed(args['seed'])
 
 	# Create tensorboard instance
-	writer = SummaryWriter(log_dir='logs1/'+args['env'] + '/run5')
+	writer = SummaryWriter(log_dir='logs1/'+args['env'] + '/run2')
 
 	# Create policy
 	policy = Agent(env, TD3, writer, args)

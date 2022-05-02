@@ -39,7 +39,14 @@ class her_sampler:
         t_samples = np.random.randint(low = 0, high = trajectory_length, size = batch_size)
 
         # Copy data from the buffer according to determined indexes
-        batch = {key: buffer[key][episode_idxs, t_samples].copy() for key in buffer.keys()}
+        batch = {'info': dict(), 'next_info': dict()}
+        for key in buffer.keys():
+            if key == 'info' or key == 'next_info':
+                for info_key in buffer[key].keys():
+                    batch[key][info_key] = buffer[key][info_key][episode_idxs, t_samples].copy()
+            else:
+                batch[key] = buffer[key][episode_idxs, t_samples].copy()
+
 
         # Determine which transitions to use for HER augmentation
         her_indexes = np.where(np.random.uniform(size=batch_size) < self.future_p)
@@ -56,12 +63,19 @@ class her_sampler:
         batch[self.final_goal][her_indexes] = next_achieved_goal
         
         # Recompute the reward for the augmented 'desired_goal'
-        batch['reward'] = np.expand_dims(self.reward_func(batch['next_achieved_goal'], batch[self.final_goal], None), 1)
+        batch['reward'] = self.reward_func(batch['next_achieved_goal'], batch[self.final_goal], batch['info'])
 
         # Recompute the termination state for the augmented 'desired_goal'
-        batch['done'] = np.expand_dims(self.done_func(batch['next_achieved_goal'], batch[self.final_goal], None), 1)
+        batch['done'] = self.done_func(batch['next_achieved_goal'], batch[self.final_goal], batch['info'])
 
         # Reshape the batch
-        batch = {k: batch[k].reshape(batch_size, *batch[k].shape[1:]) for k in batch.keys()}
+        for key in batch.keys():
+            if key == 'info' or key == 'next_info':
+                for key_info in batch[key].keys():
+                    batch[key][key_info] = batch[key][key_info].reshape(batch_size, *batch[key][key_info].shape[1:])
+            else:
+                batch[key] = batch[key].reshape(batch_size, *batch[key].shape[1:])
+
+
 
         return batch

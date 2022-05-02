@@ -1,0 +1,20 @@
+
+env: "NeedleGrasp-v0"        # Task name - used to pick the class to load
+model: "TD3"                 # What algorithm to use for the agent
+seed: 0                      # Sets Gym, PyTorch and Numpy seeds
+start_timesteps: 10000        # Time steps initial random policy is used
+eval_freq: 30000             # How often (time steps) we evaluate
+max_timesteps: 5.0e+5        # Max time steps to run environment
+expl_noise: 0.1              # Std of Gaussian exploration noise
+batch_size: 2048             # Batch size for both actor and critic
+buffer_size: 5.0e+5          # Maximum number of transitions stored in the buffer
+replay_k: 4                  # Number of HER transitions per 1 real transition
+lr: 1.0e-4                   # Learning rate
+discount: 0.95               # Discount factor
+tau: 0.001                   # Target network update rate
+policy_noise: 0.2            # Noise added to target policy during critic update
+noise_clip: 0.5              # Range to clip target policy noise
+policy_freq: 2               # Frequency of delayed policy updates
+save_model: True           # Save model and optimizer parameters
+load_model: ""               # Model load file name, "" doesn't load, "default" uses file_name
+render_mode: "human"         # Env render mode

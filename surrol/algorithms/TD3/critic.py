@@ -5,8 +5,10 @@ class Critic(nn.Module):
 	def __init__(self,state_dim, action_dim):
 		super(Critic, self).__init__()
 
+		offset = 0
+
 		# Critic 1
-		self.C1 = nn.Sequential(nn.Linear(state_dim+action_dim,512),
+		self.C1 = nn.Sequential(nn.Linear(state_dim+action_dim+offset,512),
 										nn.ReLU(),
 										nn.Linear(512,1024),
 										nn.ReLU(),
@@ -15,7 +17,7 @@ class Critic(nn.Module):
 										nn.Linear(512,1)) 
 
 		# Critic 2
-		self.C2 = nn.Sequential(nn.Linear(state_dim+action_dim,512),
+		self.C2 = nn.Sequential(nn.Linear(state_dim+action_dim+offset,512),
 										nn.ReLU(),
 										nn.Linear(512,1024),
 										nn.ReLU(),

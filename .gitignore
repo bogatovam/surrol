@@ -8,3 +8,4 @@ surrol.egg-info
 policies
 surrol/data/demo
 surrol/data/video
+/models/
