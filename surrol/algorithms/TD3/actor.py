@@ -5,7 +5,9 @@ class Actor(nn.Module):
 	def __init__(self, state_dim, action_dim, max_action):
 		super(Actor, self).__init__()
 		
-		l1 = nn.Linear(state_dim, 512)
+		offset = 0
+		
+		l1 = nn.Linear(state_dim+offset, 512)
 		l2 = nn.Linear(512, 1024)
 		l3 = nn.Linear(1024, 512)
 		l4 = nn.Linear(512, action_dim)

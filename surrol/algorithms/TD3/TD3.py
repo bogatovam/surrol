@@ -54,8 +54,8 @@ class TD3:
 		self.writer = writer
 
 
-	def select_action(self, state, goal=None):
-		state = self._preprocess_state(state, goal)
+	def select_action(self, state, info, goal=None):
+		state = self._preprocess_state(state, info, goal)
 		return self.actor(state).cpu().data.numpy().flatten()
 	
 
@@ -168,7 +168,7 @@ class TD3:
 
 		return state, action, reward, next_state, done
 
-	def _preprocess_state(self, state, goal=None):
+	def _preprocess_state(self, state, info, goal=None):
 		if not goal:
 			state = np.concatenate((state['observation'],state['desired_goal']),-1)
 		else:
