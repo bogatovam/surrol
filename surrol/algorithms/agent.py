@@ -14,9 +14,10 @@ def run_eval_policy(net_params, net_name, args, env_name, seed, queue, eval_epis
 		avg_ep_len = 0
 		for _ in range(eval_episodes):
 			state = eval_env.reset()
+			info = eval_env.get_info()
 			done = False
 			while not done:
-				action = policy.select_action(state,goal)
+				action = policy.select_action(state,info,goal)
 				state, reward, done, _ = eval_env.step(action)
 				avg_reward += reward
 				avg_ep_len += 1
@@ -26,7 +27,7 @@ def run_eval_policy(net_params, net_name, args, env_name, seed, queue, eval_epis
 		
 		print("---------------------------------------")
 		print(f"Evaluation over {eval_episodes} episodes:\n")
-		print(f"Mean reward: {avg_reward:.3f}") 
+		print(f"Mean reward: {avg_reward[0]:.3f}") 
 		print(f"Mean episode length: {avg_ep_len:.0f}")
 		print("---------------------------------------")
 
@@ -84,9 +85,10 @@ class Agent:
 		
 		# Reset the environment
 		state,done = self.env.reset(), False
+		info = self.env.get_info()
 
 		# Structure to store transition data
-		observations, achieved_goals, desired_goals, actions = self._create_transition_buffers() 
+		observations, achieved_goals, desired_goals, actions, infos = self._create_transition_buffers() 
 
 		# Initial data register
 		observations[0] = state['observation']
@@ -96,6 +98,9 @@ class Agent:
 				desired_goals[0][i] = state['desired_goal'+str(i+1)]
 		else:
 			desired_goals[0][0] = state['desired_goal']
+
+		for key, val in info.items():
+			infos[key][0] = val
 
 		# Pick last goal for training
 		goal = self.num_goals if self.num_goals > 1 else None
@@ -115,7 +120,7 @@ class Agent:
 				action = self.env.action_space.sample()
 			else:
 				action = (
-					self.model.select_action(state,goal)
+					self.model.select_action(state,info,goal)
 					+ np.random.normal(0, self.max_action 
 						* self.args['expl_noise'], size=self.action_dim)
 				).clip(-self.max_action, self.max_action)
@@ -124,7 +129,7 @@ class Agent:
 			actions[episode_timesteps - 1] = action
 				
 			# Perform action
-			next_state, reward, done, next_info = self.env.step(action)
+			next_state, reward, done, info = self.env.step(action)
 
 			# Determine the done flag
 			done_bool = float(done) if episode_timesteps < self.env._max_episode_steps else 0
@@ -137,10 +142,13 @@ class Agent:
 					desired_goals[episode_timesteps][i] = next_state['desired_goal'+str(i+1)]
 			else:
 				desired_goals[episode_timesteps][0] = next_state['desired_goal']
+
+			for key, val in info.items():
+				if key != 'TimeLimit.truncated':
+					infos[key][episode_timesteps] = val
 				
 			# Re-assign values for next iteration
 			state = next_state
-			info = next_info
 
 			# Update episode reward
 			episode_reward += reward
@@ -151,18 +159,20 @@ class Agent:
 			# If episode completes store trajectories and reset
 			if done:
 				# +1 to account for 0 indexing. +0 on ep_timesteps since it will increment +1 even if done=True
-				print(f"Total T: {t+1} Episode Num: {episode_num+1} Episode T: {episode_timesteps} Reward: {episode_reward:.3f}")
+				print(f"Total T: {t+1} Episode Num: {episode_num+1} Episode T: {episode_timesteps} Reward: {episode_reward[0]:.3f}")
 				# Log to tensorboard
-				self.writer.add_scalar('Train/episode_rew', episode_reward, episode_num)
+				self.writer.add_scalar('Train/episode_rew', episode_reward[0], episode_num)
 				self.writer.add_scalar('Train/episode_len', episode_timesteps, episode_num)
 				# Store trajectories in the buffer
 				episode = [np.expand_dims(observations,0), 
 					np.expand_dims(achieved_goals,0), 
 					np.expand_dims(desired_goals,0), 
-					np.expand_dims(actions,0)]
+					np.expand_dims(actions,0),
+					infos]
 				self.model.replay_buffer._store_transitions(episode)
 				# Reset environment
 				state,done = self.env.reset(),False
+				info = self.env.get_info()
 				episode_reward = 0
 				episode_timesteps = 0
 				episode_num += 1
@@ -189,8 +199,10 @@ class Agent:
 		achieved_goals = np.zeros((self.env._max_episode_steps + 1, self.env.observation_space.spaces['achieved_goal'].shape[0]))
 		desired_goals = np.zeros((self.env._max_episode_steps + 1, self.num_goals, self.env.observation_space.spaces['desired_goal'].shape[0]))
 		actions = np.zeros((self.env._max_episode_steps, self.action_dim))
-
-		return observations, achieved_goals, desired_goals, actions
+		infos = dict()
+		for key, val in self.env.env.info_space.items():
+			infos[key] = np.zeros((self.env._max_episode_steps + 1, val.shape[0]))
+		return observations, achieved_goals, desired_goals, actions, infos
 
 	def __del__(self):
 		self.eval_queue.close()
