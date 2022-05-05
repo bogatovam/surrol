@@ -197,7 +197,8 @@ class Agent:
 	def _create_transition_buffers(self):
 		observations = np.zeros((self.env._max_episode_steps + 1, self.env.observation_space.spaces['observation'].shape[0]))
 		achieved_goals = np.zeros((self.env._max_episode_steps + 1, self.env.observation_space.spaces['achieved_goal'].shape[0]))
-		desired_goals = np.zeros((self.env._max_episode_steps + 1, self.num_goals, self.env.observation_space.spaces['desired_goal'].shape[0]))
+		d_goal = [key for key in self.env.observation_space.spaces.keys() if 'desired_goal' in key]
+		desired_goals = np.zeros((self.env._max_episode_steps + 1, self.num_goals, self.env.observation_space.spaces[d_goal[0]].shape[0]))
 		actions = np.zeros((self.env._max_episode_steps, self.action_dim))
 		infos = dict()
 		for key, val in self.env.env.info_space.items():
