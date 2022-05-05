@@ -193,6 +193,108 @@ class TD3:
 		return state_dim, action_dim, max_action
 
 
+class TD3MultiGoal(TD3):
+	def __init__(
+		self,
+		env,
+		args,
+		writer = None
+	):
+		super(TD3MultiGoal, self).__init__(env,args,writer)
+
+		#####################################################################
+		################### NeedlePickAndPlace SPECIFIC #####################
+		#####################################################################
+
+		# Load pretrained Grasping critic network
+		self.grasp_critic = copy.deepcopy(self.critic)
+		self.grasp_critic.load_state_dict(torch.load(args['prior_filname'] + "_critic"))
+		self.grasp_critic.eval()
+
+		#####################################################################
+		#####################################################################
+		#####################################################################
+
+		# Eps for critic transfer smootheness
+		self.eps = 0
+		self.eps_increment = 1 / (args['max_timesteps'] - args['start_timesteps'] - args['train_after_decay']) * args['policy_freq']
+	
+
+	def train(self, batch_size):
+		self.total_it += 1
+
+		# Sample replay buffer 
+		batch = self.replay_buffer._sample(batch_size)
+
+		# Preprocess sampled batch
+		if self.num_goals > 1:
+			state, action, reward, next_state, done = self._preprocess_batch(batch,self.num_goals)
+		else:
+			state, action, reward, next_state, done = self._preprocess_batch(batch)
+
+		with torch.no_grad():
+			# Select action according to policy and add clipped noise
+			noise = (
+				torch.randn_like(action) * self.policy_noise
+			).clamp(-self.noise_clip, self.noise_clip)
+			
+			next_action = (
+				self.actor_targets[0](next_state) + noise
+			).clamp(-self.max_action, self.max_action)
+
+			# Compute the target Q value
+			target_q1, target_q2 = self.critic_target(next_state, next_action)
+			target_Q = torch.min(target_q1, target_q2)
+			target_Q = reward + (1.0-done) * self.discount * target_Q
+
+		# Get current Q estimates
+		current_q1, current_q2 = self.critic(state, action)
+
+		# Compute critic loss
+		critic_loss = F.mse_loss(current_q1, target_Q) + F.mse_loss(current_q2, target_Q)
+
+		# Log critic loss on tensorboard
+		self.writer.add_scalar('Train/critic_loss', critic_loss.item(), self.total_it)
+
+		# Optimize the critic
+		self.critic_optimizer.zero_grad()
+		critic_loss.backward()
+		self.critic_optimizer.step()
+
+		# Delayed policy updates
+		if self.total_it % self.policy_freq == 0:
+
+			# Compute original actor losse
+			actor_loss1 = -self.critic.Q1(state, self.actor(state)).mean()
+			self.writer.add_scalar('Train/actor_loss1', actor_loss1.item(), self.total_it // self.policy_freq)
+
+			# Add loss from pretrained Grasping task
+			state_alt, _, _, _, _ = self._preprocess_batch(batch,1)
+			actor_loss2 = -self.grasp_critic.Q1(state_alt, self.actor(state)).mean()
+			self.writer.add_scalar('Train/actor_loss2', actor_loss2.item(), self.total_it // self.policy_freq)
+
+			actor_loss = self.eps * actor_loss1 + (1.0 - self.eps) * actor_loss2
+
+			# Log actor loss on tensorboard
+			self.writer.add_scalar('Train/actor_loss', actor_loss.item(), self.total_it // self.policy_freq)
+
+			self.writer.add_scalar('Train/Eps', self.eps, self.total_it // self.policy_freq)
+			
+			# Optimize the actor 
+			self.actor_optimizer.zero_grad()
+			actor_loss.backward()
+			self.actor_optimizer.step()
+
+			# Update epsilon
+			self.eps += self.eps_increment
+
+			# Update the frozen target models
+			for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
+				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+
+			for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
+				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+
 
 
 if __name__ == '__main__':

@@ -283,10 +283,16 @@ class SurRoLEnv(gym.Env):
             obs, reward, done, info = self.step(action)
             if isinstance(obs, dict):
                 print(" -> achieved goal: {}".format(np.round(obs['achieved_goal'], 4)))
-                print(" -> desired goal: {}".format(np.round(obs['desired_goal'], 4)))
+                if self.num_goals > 1:
+                    print(" -> desired goal: {}".format(np.round(obs['desired_goal'+str(self.num_goals)], 4)))
+                else:
+                    print(" -> desired goal: {}".format(np.round(obs['desired_goal'], 4)))
             else:
                 print(" -> achieved goal: {}".format(np.round(info['achieved_goal'], 4)))
-            done = self._is_success(obs['achieved_goal'], obs['desired_goal'], info)
+            if self.num_goals > 1:
+                done = self._is_success(obs['achieved_goal'], obs['desired_goal'+str(self.num_goals)], info)
+            else:
+                done = self._is_success(obs['achieved_goal'], obs['desired_goal'], info)
             steps += 1
             toc = time.time()
             print(" -> reward: {}".format(np.round(reward, 4)))
