@@ -3,8 +3,9 @@ env: "NeedlePickViaGrasp-v0"        # Task name - used to pick the class to load
 model: "TD3MultiGoal"                 # What algorithm to use for the agent
 seed: 0                      # Sets Gym, PyTorch and Numpy seeds
 start_timesteps: 5000        # Time steps initial random policy is used
+train_after_decay: 1.0e+5    # How many timesteps to train for after critic transfer is complete
 eval_freq: 50000             # How often (time steps) we evaluate
-max_timesteps: 10.0e+5        # Max time steps to run environment
+max_timesteps: 1.1e+6        # Max time steps to run environment
 expl_noise: 0.1              # Std of Gaussian exploration noise
 batch_size: 2048             # Batch size for both actor and critic
 buffer_size: 10.0e+5          # Maximum number of transitions stored in the buffer
