@@ -3,6 +3,7 @@ import time
 import numpy as np
 
 import pybullet as p
+from gym import spaces
 from surrol.tasks.psm_env import PsmEnv
 from surrol.utils.pybullet_utils import (
     get_link_pose,
@@ -11,7 +12,7 @@ from surrol.utils.pybullet_utils import (
 from surrol.const import ASSET_DIR_PATH
 
 
-class NeedlePick(PsmEnv):
+class NeedlePickViaGrasp(PsmEnv):
     POSE_TRAY = ((0.55, 0, 0.6751), (0, 0, 0))
     WORKSPACE_LIMITS = ((0.50, 0.60), (-0.05, 0.05), (0.685, 0.745))  # reduce tip pad contact
     SCALING = 5.
@@ -19,7 +20,7 @@ class NeedlePick(PsmEnv):
     # TODO: grasp is sometimes not stable; check how to fix it
 
     def _env_setup(self):
-        super(NeedlePick, self)._env_setup()
+        super(NeedlePickViaGrasp, self)._env_setup()
         # np.random.seed(4)  # for experiment reproduce
         self.has_object = True
         self._waypoint_goal = True
@@ -55,6 +56,48 @@ class NeedlePick(PsmEnv):
         p.changeVisualShape(obj_id, -1, specularColor=(80, 80, 80))
         self.obj_ids['rigid'].append(obj_id)  # 0
         self.obj_id, self.obj_link1 = self.obj_ids['rigid'][0], 1
+
+    def _get_obs(self) -> dict:
+
+        # Tip position (3), orientation (3), gripper state (1) in world frame
+        robot_state = self._get_robot_state(idx=0)
+
+        # Needle midlink pose
+        pos, orn = get_link_pose(self.obj_id, self.obj_link1)
+        needle_midlink_pos = np.array(pos)
+        needle_midlink_rot = np.array(p.getEulerFromQuaternion(orn))
+
+        # Needle midlink position
+        achieved_goal = needle_midlink_pos
+
+        # Obs: Robot state, needle pose
+        observation = np.concatenate([
+            robot_state, needle_midlink_pos.ravel(),
+            needle_midlink_rot.ravel()
+        ])
+        
+
+        obs = {
+            'observation': observation.copy(),
+            'achieved_goal': achieved_goal.copy(),
+            'desired_goal1': needle_midlink_pos.copy(),
+            'desired_goal2': self.goal.copy(),
+        }
+            
+        return obs
+    
+    def get_info(self, obs = None):
+        EE_position = self._get_robot_state(idx=0)[:3]
+        info = {'EE_position': np.array(EE_position)}
+        return info
+
+    def _get_info_space(self):
+        
+        info_space = dict(
+            EE_position = spaces.Box(-np.inf, np.inf, shape=(3,), dtype='float32'),)
+
+        return info_space
+
 
     def _sample_goal(self) -> np.ndarray:
         """ Samples a new goal and returns it.
@@ -130,9 +173,13 @@ class NeedlePick(PsmEnv):
 
         return action
 
+    @property
+    def num_goals(self):
+        return 2
+
 
 if __name__ == "__main__":
-    env = NeedlePick(render_mode='human')  # create one process and corresponding env
+    env = NeedlePickViaGrasp(render_mode='human')  # create one process and corresponding env
 
     env.test()
     env.close()
