@@ -19,6 +19,8 @@ class TD3:
 		args,
 		writer = None
 	):
+		# Use prioritised sampling
+		self.prioritised = args['buffer']['prioritised']
 
 		# Determine number of goals
 		self.num_goals = env.num_goals
@@ -47,8 +49,8 @@ class TD3:
 		self.total_it = 0
 
 		# Create HER sampler and replay buffer
-		sampler = her_sampler(args['replay_k'], self.num_goals, env.compute_reward, env.is_success)
-		self.replay_buffer = ReplayBuffer(self.num_goals, env, args['buffer_size'], sampler.sample_her_transitions)
+		sampler = her_sampler(args, self.num_goals, env.compute_reward, env.is_success)
+		self.replay_buffer = ReplayBuffer(self.num_goals, env, args['buffer']['buffer_size'], sampler.sample_her_transitions, args['buffer']['prioritised'])
 
 		# Tensorboard agent
 		self.writer = writer
@@ -67,9 +69,9 @@ class TD3:
 
 		# Preprocess sampled batch
 		if self.num_goals > 1:
-			state, action, reward, next_state, done = self._preprocess_batch(batch,self.num_goals)
+			state, action, reward, next_state, done, info = self._preprocess_batch(batch, self.num_goals)
 		else:
-			state, action, reward, next_state, done = self._preprocess_batch(batch)
+			state, action, reward, next_state, done, info = self._preprocess_batch(batch)
 
 		with torch.no_grad():
 			# Select action according to policy and add clipped noise
@@ -90,7 +92,12 @@ class TD3:
 		current_q1, current_q2 = self.critic(state, action)
 
 		# Compute critic loss
-		critic_loss = F.mse_loss(current_q1, target_Q) + F.mse_loss(current_q2, target_Q)
+		if self.prioritised:
+			deltas = (current_q1 - target_Q) + (current_q2 - target_Q)
+			self.replay_buffer.update_priorities(info['episode_idxs'], abs(deltas.squeeze().detach().numpy()))
+			critic_loss = torch.mean((deltas * info['weights'])**2)
+		else:
+			critic_loss = F.mse_loss(current_q1, target_Q) + F.mse_loss(current_q2, target_Q)
 
 		# Log critic loss on tensorboard
 		self.writer.add_scalar('Train/critic_loss', critic_loss.item(), self.total_it)
@@ -166,7 +173,12 @@ class TD3:
 			next_state = torch.Tensor(np.concatenate((batch['next_observation'],batch['desired_goal']),1)).to(device)
 		done = torch.Tensor(batch['done']).to(device)
 
-		return state, action, reward, next_state, done
+		info = {}
+		if self.prioritised:
+			info['episode_idxs'] = batch['episode_idxs']
+			info['weights'] = batch['weights']
+
+		return state, action, reward, next_state, done, info
 
 	def _preprocess_state(self, state, info, goal=None):
 		if not goal:

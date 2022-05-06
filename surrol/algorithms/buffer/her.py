@@ -1,16 +1,22 @@
 import numpy as np
 
 class her_sampler:
-    def __init__(self, replay_k, num_goals, reward_func=None, done_func = None):
+    def __init__(self, args, num_goals, reward_func=None, done_func = None):
 
         # Number of augmented samples per batch
-        self.replay_k = replay_k
+        self.replay_k = args['buffer']['replay_k']
 
         # Proportion of her samples
-        self.future_p = 1 - (1. / (1 + replay_k))
+        self.future_p = 1 - (1. / (1 + self.replay_k))
 
         # Number of goals
         self.num_goals = num_goals
+
+        # Use prioratised sampling
+        self.prioritised = args['buffer']['prioritised']
+        if self.prioritised:
+            self._alpha = args['buffer']['alpha']
+            self._beta = args['buffer']['beta']
 
         # Final goal to use
         if self.num_goals > 1:
@@ -32,8 +38,15 @@ class her_sampler:
         # Buffer size
         buffer_lenght = buffer['action'].shape[0]
 
+        if self.prioritised:
+            norm_probs = buffer['priorities']**self._alpha / np.sum(buffer['priorities']**self._alpha)
+        else:
+            norm_probs = np.ones((buffer_lenght)) / buffer_lenght
+
+
         # generate idxs which trajectories to use
-        episode_idxs = np.random.randint(low = 0, high = buffer_lenght, size = batch_size)
+        #episode_idxs = np.random.randint(low = 0, high = buffer_lenght, size=batch_size)
+        episode_idxs = np.random.choice(np.arange(0,buffer_lenght), size=batch_size, p=norm_probs.reshape(-1))
 
         # generate idxs which timesteps to use
         t_samples = np.random.randint(low = 0, high = trajectory_length, size = batch_size)
@@ -44,6 +57,8 @@ class her_sampler:
             if key == 'info' or key == 'next_info':
                 for info_key in buffer[key].keys():
                     batch[key][info_key] = buffer[key][info_key][episode_idxs, t_samples].copy()
+            elif key == 'priorities':
+                continue
             else:
                 batch[key] = buffer[key][episode_idxs, t_samples].copy()
 
@@ -76,6 +91,10 @@ class her_sampler:
             else:
                 batch[key] = batch[key].reshape(batch_size, *batch[key].shape[1:])
 
-
+        if self.prioritised:
+            weights = (buffer_lenght * norm_probs[episode_idxs])**-self._beta
+            normalized_weights = weights / weights.max()
+            batch['weights'] = normalized_weights
+            batch['episode_idxs'] = episode_idxs
 
         return batch

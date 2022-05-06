@@ -12,7 +12,11 @@ class ReplayBuffer:
                 num_goals,
                 env,
                 buffer_size,
-                sample_function):
+                sample_function,
+                prioritised=True):
+
+        # Prioratise parameters
+        self.prioritised = prioritised
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.sample_function = sample_function
@@ -40,6 +44,15 @@ class ReplayBuffer:
         # Init buffer structure
         self._buffer = OrderedDict()
         self._init_buffer_storage()
+
+    def is_full(self):
+        return self.num_trajectories_stored == self.max_size
+
+    def is_empty(self):
+        return self.num_trajectories_stored == 0
+
+    def update_priorities(self, idxs: np.array, priorities: np.array) -> None:
+        self._buffer["priorities"][idxs] = priorities
 
     def _sample(self, batch_size):
 
@@ -79,6 +92,9 @@ class ReplayBuffer:
         self._buffer['achieved_goal'] = np.zeros((self.max_size, self.T + 1, goal_dim))
         self._buffer['action'] = np.zeros((self.max_size, self.T, action_dim))
 
+        if self.prioritised:
+            self._buffer['priorities'] = np.zeros((self.max_size, 1))
+
         if self.num_goals > 1:
             # Initialise storage for multiple goals
             for i in range(self.num_goals):
@@ -89,7 +105,7 @@ class ReplayBuffer:
 
         self._buffer['info'] = dict()
         for key, val in self.env.env.info_space.items():
-            self._buffer['info'][key] = np.zeros((self.max_size, self.T + 1, val.shape[0]))
+            self._buffer['info'][key] = np.ones((self.max_size, self.T + 1, val.shape[0]))
 
 
 
@@ -106,6 +122,13 @@ class ReplayBuffer:
         self._buffer['observation'][idx] = observations
         self._buffer['achieved_goal'][idx] = achieved_goals
         self._buffer['action'][idx] = actions
+
+        # Add maximum priority to the new samples
+        if self.prioritised:
+            priorities = np.ones((batch_size)) if self.is_empty() else np.ones((batch_size)) * self._buffer["priorities"].max()
+            self._buffer['priorities'][idx] = priorities
+            
+
         if self.num_goals > 1:
             for i in range(self.num_goals):
                 self._buffer['desired_goal'+str(i+1)][idx] = desired_goals[:,:,i,:]

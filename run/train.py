@@ -44,7 +44,7 @@ if __name__ == "__main__":
 	np.random.seed(args['seed'])
 
 	# Create tensorboard instance
-	writer = SummaryWriter(log_dir='logs/'+args['env'] + '/run2')
+	writer = SummaryWriter(log_dir='logs/'+args['env'] + '/run3')
 
 	# Create policy
 	if args['model'] == 'TD3':
