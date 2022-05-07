@@ -3,11 +3,15 @@ import time
 import numpy as np
 import math
 
+import time
+from gym import spaces
 import pybullet as p
 from surrol.tasks.psm_env import PsmEnv
 from surrol.utils.pybullet_utils import (
+    step,
     get_link_pose,
-    wrap_angle
+    wrap_angle,
+    plot_coordinate_frame
 )
 from surrol.const import ASSET_DIR_PATH
 
@@ -60,23 +64,20 @@ class NeedleGrasp(PsmEnv):
         self.obj_ids['rigid'].append(obj_id)  # 0
         self.obj_id, self.obj_link1 = self.obj_ids['rigid'][0], 1
 
-    def _sample_goal(self) -> np.ndarray:
-        """ Samples a new goal and returns it.
-        """
-        pos, orn = get_link_pose(self.obj_id, self.obj_link1)
-        goal = np.array([pos[0], pos[1], pos[2]])
+        # Grasping params
+        self.distance_threshold = 0.01
+        self.grasping_threshold = 0.0021
 
-        return goal.copy()
+        self.z_offset = 0.0042
+
+
+        self.tip_locator = p.loadURDF(os.path.join(ASSET_DIR_PATH, 'sphere/sphere.urdf'),
+                            globalScaling=2)
 
 
     def _get_obs(self) -> dict:
 
         robot_state = self._get_robot_state(idx=0)
-        # TODO: may need to modify
-
-        # Needle baselink position
-        #pos, _ = get_link_pose(self.obj_id, -1)
-        #object_pos = np.array(pos)
 
         # Needle midlink pose
         pos, orn = get_link_pose(self.obj_id, self.obj_link1)
@@ -86,6 +87,7 @@ class NeedleGrasp(PsmEnv):
         waypoint_rot = np.array(p.getEulerFromQuaternion(orn))
         
         achieved_goal = np.array(get_link_pose(self.psm1.body, self.psm1.TIP_LINK_INDEX)[0])
+        achieved_goal[2] += self.z_offset
 
         observation = np.concatenate([
             robot_state, waypoint_pos.ravel(),
@@ -95,14 +97,34 @@ class NeedleGrasp(PsmEnv):
         obs = {
             'observation': observation.copy(),
             'achieved_goal': achieved_goal.copy(),
-            'desired_goal': self.goal.copy()
+            'desired_goal': self.goal.copy(),
         }
+
         return obs
+
+    def _sample_goal(self) -> np.ndarray:
+        """ Samples a new goal and returns it.
+        """
+        # Needle mid-point
+        pos, orn = get_link_pose(self.obj_id, self.obj_link1)
+        goal = np.array([pos[0], pos[1], pos[2]])
+
+        return goal.copy()
+
+    def _update_goal(self):
+
+        # Needle mid-point
+        pos, orn = get_link_pose(self.obj_id, self.obj_link1)
+        goal = np.array([pos[0], pos[1], pos[2]])
+
+        p.resetBasePositionAndOrientation(self.obj_ids['fixed'][0], goal, (0, 0, 0, 1))
+
+        self.goal = goal
 
     def _sample_goal_callback(self):
         """ Define waypoints
         """
-        super()._sample_goal_callback()
+        
         self._waypoints = [None, None, None]  # four waypoints
         pos_obj, orn_obj = get_link_pose(self.obj_id, self.obj_link1)
         self._waypoint_z_init = pos_obj[2]
@@ -124,12 +146,15 @@ class NeedleGrasp(PsmEnv):
         # print("Cartesian: {}".format(self.psm1.get_current_position()))
         # self.psm1.reset_joint(qs)
 
+        pos_obj = self.goal
+
         self._waypoints[0] = np.array([pos_obj[0], pos_obj[1],
                                        pos_obj[2] + (-0.0007 + 0.0102 + 0.005) * self.SCALING, yaw, 0.5])  # approach
         self._waypoints[1] = np.array([pos_obj[0], pos_obj[1],
                                        pos_obj[2] + (-0.0007 + 0.0102) * self.SCALING, yaw, 0.5])  # approach
         self._waypoints[2] = np.array([pos_obj[0], pos_obj[1],
                                        pos_obj[2] + (-0.0007 + 0.0102) * self.SCALING, yaw, -0.5])  # grasp
+
 
     def get_oracle_action_task_specific(self, obs) -> np.ndarray:
         """
@@ -140,6 +165,7 @@ class NeedleGrasp(PsmEnv):
         for i, waypoint in enumerate(self._waypoints):
             if waypoint is None:
                 continue
+            obs['observation'][2] += self.z_offset
             delta_pos = (waypoint[:3] - obs['observation'][:3]) / 0.01 / self.SCALING
             delta_yaw = (waypoint[3] - obs['observation'][5]).clip(-0.4, 0.4)
             if np.abs(delta_pos).max() > 1:
@@ -147,6 +173,8 @@ class NeedleGrasp(PsmEnv):
             scale_factor = 0.4
             delta_pos *= scale_factor
             action = np.array([delta_pos[0], delta_pos[1], delta_pos[2], delta_yaw, waypoint[4]])
+            cond1 = np.linalg.norm(delta_pos) * 0.01 / scale_factor < 1e-4
+            cond2 = np.abs(delta_yaw) < 1e-2
             if np.linalg.norm(delta_pos) * 0.01 / scale_factor < 1e-4 and np.abs(delta_yaw) < 1e-2:
                 self._waypoints[i] = None
             break
@@ -167,49 +195,73 @@ class NeedleGrasp(PsmEnv):
         The reward is 0 or -1.
         """
 
-        # Identify successful transitions
-        success = self._is_success(desired_goal,achieved_goal,info)
+        # Identify successful grasp
+        success = self._is_success(achieved_goal, desired_goal, info)
 
         # Initiates all rewards to -1
         reward = np.zeros_like(success) - 1.0
 
         # Give reward for reaching an approximate area of the grasping point
         d = goal_distance(achieved_goal, desired_goal)
+
         distance_condition = (d < self.distance_threshold)
         reward += distance_condition
 
         # Add reward for successfully grasping
-        reward += success
+        reward += success * 2.0
 
         return reward.astype(np.float32)
         
-
    
-    def _is_success(self, achieved_goal, desired_goal, info=None):
+    def _is_success(self, achieved_goal, desired_goal, info):
         """ Indicates whether or not the achieved goal successfully achieved the desired goal.
         """
+        jaw_threshold = 0.22
+        jaw_state = info['jaw_state']
+        jaw_condition = (jaw_state < jaw_threshold)
+
         # Distance between the grasping point and EE tip
         d = goal_distance(achieved_goal, desired_goal)
-        distance_condition = (d < self.distance_threshold)
+        distance_condition = (d < self.grasping_threshold)
 
+        overal_condition = np.logical_and(jaw_condition, distance_condition).astype(np.float32)
 
-        # If info provided during reward recalculation
-        if info is not None and isinstance(info,list):
-            grasping_condition = [val['is_success'] for val in info]
-        elif info is not None and isinstance(info,dict):
-            grasping_condition = info['is_success']
-        # If reward measured for storing in the buffer
-        else:
-            grasping_condition = np.not_equal(self._activated,-1)
-        return np.logical_and(distance_condition,grasping_condition).astype(np.float32)
+        return overal_condition
 
     def _step_callback(self):
         """ A custom callback that is called after stepping the simulation. Can be used
         to enforce additional constraints on the simulation state.
         """
 
-        self.goal = self._sample_goal()  
-        self._sample_goal_callback()
+        #plot_coordinate_frame(self.obj_id,self.obj_link1,0.1)
+        #plot_coordinate_frame(self.psm1.body,self.psm1.TIP_LINK_INDEX,lifeTime=0.1,offsets=[0,0,self.z_offset])
+
+        # Update tip position indicator
+        EE_tip = np.array(get_link_pose(self.psm1.body, self.psm1.TIP_LINK_INDEX)[0])
+        EE_tip[2] += self.z_offset
+        p.resetBasePositionAndOrientation(self.tip_locator, EE_tip, (0, 0, 0, 1))
+
+        # Update goal position
+        self._update_goal()  
+
+        #time.sleep(0.2)
+
+    def _get_info_space(self):
+        info_space = dict(
+            jaw_state = spaces.Box(-np.inf, np.inf, shape=(1,), dtype='float32'),)
+
+        return info_space
+
+    def get_info(self, obs = None):
+
+        info = {'jaw_state': np.array(self.psm1.get_current_jaw_position())}
+
+        return info
+
+
+    @property
+    def num_goals(self):
+        return 1
     
 
     
@@ -217,7 +269,7 @@ if __name__ == "__main__":
 
     env = NeedleGrasp(render_mode='human')  # create one process and corresponding env
 
-    for _ in range(1):
+    for _ in range(10):
         env.test()
     env.close()
     time.sleep(2)

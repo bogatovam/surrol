@@ -3,8 +3,9 @@ __pycache__/
 *.code-workspace
 .ipynb_checkpoints/
 .idea
-logs
+*logs*
 surrol.egg-info
 policies
 surrol/data/demo
 surrol/data/video
+/models/

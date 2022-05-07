@@ -31,6 +31,13 @@ register(
 )
 
 register(
+    id='NeedlePickViaGrasp-v0',
+    #entry_point='surrol.tasks.needle_pick:NeedlePick',
+    entry_point='surrol.tasks:NeedlePickViaGrasp',
+    max_episode_steps=50,
+)
+
+register(
     id='NeedlePickPointSpecific-v0',
     #entry_point='surrol.tasks.needle_pick:NeedlePick',
     entry_point='surrol.tasks:NeedlePickPointSpecific',
