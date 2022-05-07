@@ -18,9 +18,10 @@ import numpy as np
 from typing import Union
 from collections import OrderedDict
 
-
 RENDER_HEIGHT = 480  # train
 RENDER_WIDTH = 640
+
+
 # RENDER_HEIGHT = 1080  # record
 # RENDER_WIDTH = 1920
 
@@ -150,7 +151,7 @@ class SurRoLEnv(gym.Env):
             info = {'desired_goal1': self.get_goal1()}
             return obs, info
 
-        return obs,None
+        return obs
 
     def close(self):
         if self.cid >= 0:
@@ -173,7 +174,11 @@ class SurRoLEnv(gym.Env):
         self._np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def compute_reward(self, achieved_goal, desired_goal, info):
+    def get_info(self, obs):
+        return {'is_success': self._is_success(obs['achieved_goal'], self.goal), } if isinstance(obs, dict) else {
+            'achieved_goal': None}
+
+    def compute_reward(self, achieved_goal, desired_goal, info=None):
         raise NotImplementedError
 
     def _env_setup(self):
@@ -220,7 +225,7 @@ class SurRoLEnv(gym.Env):
 
     def _check_vec_obs_format(self, obs: Union[OrderedDict, dict, list]) -> np.ndarray:
 
-        if isinstance(obs,list):
+        if isinstance(obs, list):
             obs = obs[0].copy()
 
         for key in obs.keys():
@@ -252,10 +257,16 @@ class SurRoLEnv(gym.Env):
             obs, reward, done, info = self.step(action)
             if isinstance(obs, dict):
                 print(" -> achieved goal: {}".format(np.round(obs['achieved_goal'], 4)))
-                print(" -> desired goal: {}".format(np.round(obs['desired_goal'], 4)))
+                if self.num_goals > 1:
+                    print(" -> desired goal: {}".format(np.round(obs['desired_goal' + str(self.num_goals)], 4)))
+                else:
+                    print(" -> desired goal: {}".format(np.round(obs['desired_goal'], 4)))
             else:
                 print(" -> achieved goal: {}".format(np.round(info['achieved_goal'], 4)))
-            done = info['is_success'] if isinstance(obs, dict) else done
+            if self.num_goals > 1:
+                done = self._is_success(obs['achieved_goal'], obs['desired_goal' + str(self.num_goals)], info)
+            else:
+                done = self._is_success(obs['achieved_goal'], obs['desired_goal'], info)
             steps += 1
             toc = time.time()
             print(" -> reward: {}".format(np.round(reward, 4)))

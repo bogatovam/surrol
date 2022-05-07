@@ -162,7 +162,7 @@ class NeedleGrasp(PsmEnv):
             return pose[0][2] > self._waypoint_z_init + 0.005 * self.SCALING
 
     
-    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info):
+    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info=None):
         """ All sparse reward.
         The reward is 0 or -1.
         """

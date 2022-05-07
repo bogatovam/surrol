@@ -113,7 +113,7 @@ class PsmEnv(SurRoLGoalEnv):
         """
         # d = goal_distance(achieved_goal, desired_goal)
         # return - (d > self.distance_threshold).astype(np.float32)
-        return self._is_success(achieved_goal, desired_goal).astype(np.float32) - 1.
+        return -goal_distance(achieved_goal, desired_goal)
 
     def _env_setup(self):
         # camera
