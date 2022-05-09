@@ -25,6 +25,7 @@ def goal_distance(goal_a, goal_b):
 
     return np.linalg.norm(goal_a - goal_b, axis=-1, keepdims=True)
 
+
 def goal_orientation(goal_a, goal_b):
     assert goal_a.shape == goal_b.shape
     ori_a = get_euler_from_quaternion(goal_a[3:])
@@ -68,7 +69,7 @@ class PsmEnv(SurRoLGoalEnv):
 
         # Use MultiGoal method
         self.multi_goal = False
-         
+
         # has_object
         self.has_object = False
         self._waypoint_goal = False
@@ -113,7 +114,8 @@ class PsmEnv(SurRoLGoalEnv):
         """
         # d = goal_distance(achieved_goal, desired_goal)
         # return - (d > self.distance_threshold).astype(np.float32)
-        return self._is_success(achieved_goal, desired_goal).astype(np.float32) - 1.
+        return -goal_distance(achieved_goal, desired_goal)
+        # return self._is_success(achieved_goal, desired_goal).astype(np.float32) - 1.
 
     def _env_setup(self):
         # camera

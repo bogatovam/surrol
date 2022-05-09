@@ -12,7 +12,7 @@ from surrol.algorithms.TD3 import TD3, TD3MultiGoal
 if __name__ == "__main__":
 
 	# Config file
-	cfg_file = 'NeedlePickViaGrasp-v0.yaml'
+	cfg_file = 'NeedleReach-v0.yaml'
 
 	# Required to start pybullet on a seperate thread
 	mp.set_start_method('spawn')

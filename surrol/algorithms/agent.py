@@ -14,7 +14,7 @@ def run_eval_policy(net_params, net_name, args, env_name, seed, queue, eval_epis
 		avg_ep_len = 0
 		for _ in range(eval_episodes):
 			state = eval_env.reset()
-			info = eval_env.get_info()
+			info = eval_env.get_info(state)
 			done = False
 			while not done:
 				action = policy.select_action(state,info,goal)
@@ -85,7 +85,7 @@ class Agent:
 		
 		# Reset the environment
 		state,done = self.env.reset(), False
-		info = self.env.get_info()
+		info = self.env.get_info(state)
 
 		# Structure to store transition data
 		observations, achieved_goals, desired_goals, actions, infos = self._create_transition_buffers() 
