@@ -290,8 +290,8 @@ class Arm(object):
         assert len(abs_input) == self.DoF, "The number of joints should match the arm DoF."
         if not np.all(np.bitwise_and(abs_input >= self.limits['lower'][:self.DoF],
                                      abs_input <= self.limits['upper'][:self.DoF])):
-            print("Joint position out of valid range!")
-            print("Set joint:", abs_input)
+            # print("Joint position out of valid range!")
+            # print("Set joint:", abs_input)
             return False
         return True
 
