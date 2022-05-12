@@ -47,6 +47,10 @@ class TD3:
 
 		# Flags
 		self.total_it = 0
+		if self.prioritised:
+			# Annealing beta for importance sampling
+			self.beta = args['buffer']['beta']
+			self.beta_increment = (1.0 - self.beta) / (args['max_timesteps'] - args['start_timesteps'])
 
 		# Create HER sampler and replay buffer
 		sampler = her_sampler(args, self.num_goals, env.compute_reward, env.is_success)
@@ -73,31 +77,14 @@ class TD3:
 		else:
 			state, action, reward, next_state, done, info = self._preprocess_batch(batch)
 
-		with torch.no_grad():
-			# Select action according to policy and add clipped noise
-			noise = (
-				torch.randn_like(action) * self.policy_noise
-			).clamp(-self.noise_clip, self.noise_clip)
-			
-			next_action = (
-				self.actor_target(next_state) + noise
-			).clamp(-self.max_action, self.max_action)
-
-			# Compute the target Q value
-			target_q1, target_q2 = self.critic_target(next_state, next_action)
-			target_Q = torch.min(target_q1, target_q2)
-			target_Q = reward + (1.0-done) * self.discount * target_Q
+		# Get target Q using 2 target critics
+		target_Q = self._get_target_Q(action, next_state, reward, done)
 
 		# Get current Q estimates
 		current_q1, current_q2 = self.critic(state, action)
 
 		# Compute critic loss
-		if self.prioritised:
-			deltas = (current_q1 - target_Q) + (current_q2 - target_Q)
-			self.replay_buffer.update_priorities(info['episode_idxs'], abs(deltas.squeeze().detach().numpy()))
-			critic_loss = torch.mean((deltas * info['weights'])**2)
-		else:
-			critic_loss = F.mse_loss(current_q1, target_Q) + F.mse_loss(current_q2, target_Q)
+		critic_loss = self._compute_critic_loss(current_q1, current_q2, target_Q, info)
 
 		# Log critic loss on tensorboard
 		self.writer.add_scalar('Train/critic_loss', critic_loss.item(), self.total_it)
@@ -107,11 +94,14 @@ class TD3:
 		critic_loss.backward()
 		self.critic_optimizer.step()
 
+		# Train callback
+		self.train_callback()
+
 		# Delayed policy updates
 		if self.total_it % self.policy_freq == 0:
 
 			# Compute actor losse
-			actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
+			actor_loss = self._compute_actor_loss(state, batch)
 
 			# Log actor loss on tensorboard
 			self.writer.add_scalar('Train/actor_loss', actor_loss.item(), self.total_it)
@@ -122,11 +112,7 @@ class TD3:
 			self.actor_optimizer.step()
 
 			# Update the frozen target models
-			for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
-				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
-
-			for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
-				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+			self._polyak_update()
 
 
 	def save(self, filename):
@@ -146,6 +132,10 @@ class TD3:
 		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer"))
 		self.actor_target = copy.deepcopy(self.actor)
 
+	def eval(self):
+		self.critic.eval()
+		self.actor.eval()
+
 	def load_network_params(self, params):
 		actor_params, critic_params = params
 		self.critic.load_state_dict(critic_params)
@@ -158,6 +148,67 @@ class TD3:
 		actor = copy.deepcopy(self.actor.state_dict())
 		
 		return [actor, critic]
+
+	def _get_target_Q(self, action, next_state, reward, done):
+
+		with torch.no_grad():
+			# Select action according to policy and add clipped noise
+			noise = (
+				torch.randn_like(action) * self.policy_noise
+			).clamp(-self.noise_clip, self.noise_clip)
+			
+			next_action = (
+				self.actor_target(next_state) + noise
+			).clamp(-self.max_action, self.max_action)
+
+			# Compute the target Q value
+			target_q1, target_q2 = self.critic_target(next_state, next_action)
+			target_Q = torch.min(target_q1, target_q2)
+			target_Q = reward + (1.0-done) * self.discount * target_Q
+		
+		return target_Q
+
+	def _compute_critic_loss(self, current_q1, current_q2, target_Q, info):
+
+		# Compute critic loss
+		if self.prioritised:
+			TD_q1 = current_q1 - target_Q
+			TD_q2 = current_q2 - target_Q
+			TD_errors = (abs(TD_q1) + abs(TD_q2)) / 2
+			self.replay_buffer.update_priorities(info['episode_idxs'], TD_errors.squeeze().detach().cpu().numpy())
+			err_q1 = torch.mean((TD_q1 * info['weights'])**2)
+			err_q2 = torch.mean((TD_q2 * info['weights'])**2)
+			critic_loss = err_q1 + err_q2
+
+		else:
+			critic_loss = F.mse_loss(current_q1, target_Q) + F.mse_loss(current_q2, target_Q)
+
+		return critic_loss
+
+	def _compute_actor_loss(self, state, batch):
+
+		actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
+		return actor_loss
+
+	def train_callback(self):
+
+		if self.prioritised:
+
+			# Log Beta
+			self.writer.add_scalar('Train/Beta', self.beta, self.total_it)
+
+			# Update Beta
+			self.beta += self.beta_increment
+
+
+	def _polyak_update(self):
+
+		for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
+			target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+
+		for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
+			target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+	
 
 	def _preprocess_batch(self,batch,goal=None):
 
@@ -176,7 +227,7 @@ class TD3:
 		info = {}
 		if self.prioritised:
 			info['episode_idxs'] = batch['episode_idxs']
-			info['weights'] = batch['weights']
+			info['weights'] = torch.Tensor(batch['weights']).to(device)
 
 		return state, action, reward, next_state, done, info
 
@@ -229,83 +280,32 @@ class TD3MultiGoal(TD3):
 
 		# Eps for critic transfer smootheness
 		self.eps = 0
-		self.eps_increment = 1 / (args['max_timesteps'] - args['start_timesteps'] - args['train_after_decay']) * args['policy_freq']
+		self.eps_increment = 1 / (args['max_timesteps'] - args['start_timesteps'] - args['train_after_decay'])
 	
 
-	def train(self, batch_size):
-		self.total_it += 1
+	def _compute_actor_loss(self, state, batch):
 
-		# Sample replay buffer 
-		batch = self.replay_buffer._sample(batch_size)
+		# Compute original actor losse
+		actor_loss1 = -self.critic.Q1(state, self.actor(state)).mean()
+		self.writer.add_scalar('Train/actor_loss1', actor_loss1.item(), self.total_it // self.policy_freq)
 
-		# Preprocess sampled batch
-		if self.num_goals > 1:
-			state, action, reward, next_state, done = self._preprocess_batch(batch,self.num_goals)
-		else:
-			state, action, reward, next_state, done = self._preprocess_batch(batch)
+		# Add loss from pretrained Grasping task
+		state_alt, _, _, _, _, _ = self._preprocess_batch(batch,1)
+		actor_loss2 = -self.grasp_critic.Q1(state_alt, self.actor(state)).mean()
+		self.writer.add_scalar('Train/actor_loss2', actor_loss2.item(), self.total_it // self.policy_freq)
 
-		with torch.no_grad():
-			# Select action according to policy and add clipped noise
-			noise = (
-				torch.randn_like(action) * self.policy_noise
-			).clamp(-self.noise_clip, self.noise_clip)
-			
-			next_action = (
-				self.actor_targets[0](next_state) + noise
-			).clamp(-self.max_action, self.max_action)
+		actor_loss = self.eps * actor_loss1 + (1.0 - self.eps) * actor_loss2
 
-			# Compute the target Q value
-			target_q1, target_q2 = self.critic_target(next_state, next_action)
-			target_Q = torch.min(target_q1, target_q2)
-			target_Q = reward + (1.0-done) * self.discount * target_Q
+		return actor_loss
 
-		# Get current Q estimates
-		current_q1, current_q2 = self.critic(state, action)
+	def train_callback(self):
+		super().train_callback()
 
-		# Compute critic loss
-		critic_loss = F.mse_loss(current_q1, target_Q) + F.mse_loss(current_q2, target_Q)
+		# Log epsilon
+		self.writer.add_scalar('Train/Eps', self.eps, self.total_it)
 
-		# Log critic loss on tensorboard
-		self.writer.add_scalar('Train/critic_loss', critic_loss.item(), self.total_it)
-
-		# Optimize the critic
-		self.critic_optimizer.zero_grad()
-		critic_loss.backward()
-		self.critic_optimizer.step()
-
-		# Delayed policy updates
-		if self.total_it % self.policy_freq == 0:
-
-			# Compute original actor losse
-			actor_loss1 = -self.critic.Q1(state, self.actor(state)).mean()
-			self.writer.add_scalar('Train/actor_loss1', actor_loss1.item(), self.total_it // self.policy_freq)
-
-			# Add loss from pretrained Grasping task
-			state_alt, _, _, _, _ = self._preprocess_batch(batch,1)
-			actor_loss2 = -self.grasp_critic.Q1(state_alt, self.actor(state)).mean()
-			self.writer.add_scalar('Train/actor_loss2', actor_loss2.item(), self.total_it // self.policy_freq)
-
-			actor_loss = self.eps * actor_loss1 + (1.0 - self.eps) * actor_loss2
-
-			# Log actor loss on tensorboard
-			self.writer.add_scalar('Train/actor_loss', actor_loss.item(), self.total_it // self.policy_freq)
-
-			self.writer.add_scalar('Train/Eps', self.eps, self.total_it // self.policy_freq)
-			
-			# Optimize the actor 
-			self.actor_optimizer.zero_grad()
-			actor_loss.backward()
-			self.actor_optimizer.step()
-
-			# Update epsilon
-			self.eps += self.eps_increment
-
-			# Update the frozen target models
-			for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
-				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
-
-			for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
-				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+		# Update epsilon
+		self.eps = min(1, self.eps + self.eps_increment)
 
 
 
