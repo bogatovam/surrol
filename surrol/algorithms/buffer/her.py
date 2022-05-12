@@ -33,7 +33,8 @@ class her_sampler:
     def sample_her_transitions(self, buffer, batch_size):
 
         # Trajectory lenght
-        trajectory_length = buffer['action'].shape[1]
+        #trajectory_length = buffer['action'].shape[1]
+        trajectory_length = self._get_trajectory_lengths(buffer)
 
         # Buffer size
         buffer_lenght = buffer['action'].shape[0]
@@ -45,11 +46,13 @@ class her_sampler:
 
 
         # generate idxs which trajectories to use
-        #episode_idxs = np.random.randint(low = 0, high = buffer_lenght, size=batch_size)
         episode_idxs = np.random.choice(np.arange(0,buffer_lenght), size=batch_size, p=norm_probs.reshape(-1))
 
+        # Form max_trajectory array for each episode selected
+        traj_lens_for_batch = trajectory_length[episode_idxs]
+
         # generate idxs which timesteps to use
-        t_samples = np.random.randint(low = 0, high = trajectory_length, size = batch_size)
+        t_samples = np.random.randint(low = 0, high = traj_lens_for_batch, size = batch_size)
 
         # Copy data from the buffer according to determined indexes
         batch = {'info': dict(), 'next_info': dict()}
@@ -67,7 +70,7 @@ class her_sampler:
         her_indexes = np.where(np.random.uniform(size=batch_size) < self.future_p)
 
         # Sample 'future' timesteps for each 't_samples'
-        future_offset = np.random.uniform(size=batch_size) * (trajectory_length - t_samples)
+        future_offset = np.random.uniform(size=batch_size) * (traj_lens_for_batch - t_samples)
         future_offset = future_offset.astype(int)
         future_t = (t_samples + 1 + future_offset)[her_indexes]
 
@@ -98,3 +101,19 @@ class her_sampler:
             batch['episode_idxs'] = episode_idxs
 
         return batch
+
+
+    def _get_trajectory_lengths(self, buffer):
+
+        is_success = buffer['info']['is_success']
+
+        term_info = np.nonzero(is_success)
+        term_traj_idx, term_timestep  = term_info[0], term_info[1]
+
+        lens = np.ones(is_success.shape[0]) * 50
+
+        lens[term_traj_idx] = term_timestep
+
+        return lens
+
+
