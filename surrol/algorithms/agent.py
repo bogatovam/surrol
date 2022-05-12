@@ -3,12 +3,18 @@ import gym
 from multiprocessing import Process, Queue
 
 def run_eval_policy(net_params, net_name, args, env_name, seed, queue, eval_episodes):
+
+	seeds = [seed+100, seed+200, seed+300, seed+400, seed+500]
+	avg_rewards = []
+	avg_ep_lens = []
+	for s in seeds:
 		eval_env = gym.make(env_name)
-		eval_env.seed(seed + 100)
+		eval_env.seed(s)
 		goal = eval_env.num_goals if eval_env.num_goals > 1 else None
 
 		policy = net_name(eval_env, args)
 		policy.load_network_params(net_params)
+		policy.eval()
 		
 		avg_reward = 0.
 		avg_ep_len = 0
@@ -23,16 +29,20 @@ def run_eval_policy(net_params, net_name, args, env_name, seed, queue, eval_epis
 				avg_ep_len += 1
 				
 		avg_reward /= eval_episodes
-		avg_ep_len /= eval_episodes 
-		
-		print("---------------------------------------")
-		print(f"Evaluation over {eval_episodes} episodes:\n")
-		print(f"Mean reward: {avg_reward[0]:.3f}") 
-		print(f"Mean episode length: {avg_ep_len:.0f}")
-		print("---------------------------------------")
+		avg_ep_len /= eval_episodes
+
+		avg_rewards.append(avg_reward) 
+		avg_ep_lens.append(avg_ep_len)
 
 		eval_env.close()
-		queue.put([avg_reward,avg_ep_len])
+	
+	print("---------------------------------------")
+	print(f"Evaluation over {5} seeds, each with {eval_episodes} episodes:\n")
+	print(f"Mean reward: {np.mean(avg_rewards):.3f}") 
+	print(f"Mean episode length: {np.mean(avg_ep_lens):.0f}")
+	print("---------------------------------------")
+
+	queue.put([np.mean(avg_rewards),np.mean(avg_ep_lens)])
 
 
 class Agent:
@@ -59,7 +69,7 @@ class Agent:
 		self.eval_iter = 0
 		self.eval_queue = Queue()
 
-	def eval_policy(self, eval_queue, eval_episodes = 10):
+	def eval_policy(self, eval_queue, eval_episodes = 100):
 		net_params = self.model.get_network_params()
 		p = Process(target=run_eval_policy, args=(net_params, self.model_name, self.args, self.args['env'], self.args['seed'], eval_queue, eval_episodes))
 		p.start()
@@ -172,7 +182,7 @@ class Agent:
 				self.model.replay_buffer._store_transitions(episode)
 				# Reset environment
 				state,done = self.env.reset(),False
-				info = self.env.get_info()
+				info = self.env.get_info(state)
 				episode_reward = 0
 				episode_timesteps = 0
 				episode_num += 1
@@ -192,7 +202,7 @@ class Agent:
 				self.writer.add_scalar('Eval/avg_ep_len', avg_ep_len, self.eval_iter)
 				self.eval_iter +=1
 				if self.args['save_model']: 
-					self.model.save(f"./models/"+self.args['env']+'_'+str(t+1))
+					self.model.save(f"./models/"+self.args['env']+'/'+self.args['run_name']+'/'+str(t+1))
 
 	def _create_transition_buffers(self):
 		observations = np.zeros((self.env._max_episode_steps + 1, self.env.observation_space.spaces['observation'].shape[0]))
