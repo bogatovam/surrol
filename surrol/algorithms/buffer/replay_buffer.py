@@ -52,7 +52,7 @@ class ReplayBuffer:
         return self.num_trajectories_stored == 0
 
     def update_priorities(self, idxs: np.array, priorities: np.array) -> None:
-        self._buffer["priorities"][idxs] = priorities
+        self._buffer["priorities"][idxs] = priorities.reshape(-1,1)
 
     def _sample(self, batch_size):
 
@@ -105,7 +105,7 @@ class ReplayBuffer:
 
         self._buffer['info'] = dict()
         for key, val in self.env.env.info_space.items():
-            self._buffer['info'][key] = np.ones((self.max_size, self.T + 1, val.shape[0]))
+            self._buffer['info'][key] = np.zeros((self.max_size, self.T + 1, val.shape[0]))
 
 
 
@@ -117,6 +117,9 @@ class ReplayBuffer:
 
         # Get idx defining where to store on the ring buffer
         idx = self._get_storage_idx(batch_size)
+
+        # Reset the buffer at the chosen indexes
+        self._reset_buffer_at_idx(idx)
 
         # Store the data
         self._buffer['observation'][idx] = observations
@@ -144,6 +147,25 @@ class ReplayBuffer:
 
         # Update total count of trejctories stored
         self.num_trajectories_stored = min(batch_size + self.num_trajectories_stored, self.max_size)
+
+    def _reset_buffer_at_idx(self,idx):
+
+        # Reset the static elements
+        self._buffer['observation'][idx] = np.zeros_like(self._buffer['observation'][idx])
+        self._buffer['achieved_goal'][idx] = np.zeros_like(self._buffer['achieved_goal'][idx])
+        self._buffer['action'][idx] = np.zeros_like(self._buffer['action'][idx])
+
+        # Reset the goal elements
+        if self.num_goals > 1:
+            for i in range(self.num_goals):
+                self._buffer['desired_goal'+str(i+1)][idx] = np.zeros_like(self._buffer['desired_goal'+str(i+1)][idx])
+        else:
+            self._buffer['desired_goal'][idx] = np.zeros_like(self._buffer['desired_goal'][idx])
+
+        # Reset the info elements
+        for key in self._buffer['info']:
+            self._buffer['info'][key][idx] = np.zeros_like(self._buffer['info'][key][idx])
+
 
     def _get_storage_idx(self, increment=None):
 
