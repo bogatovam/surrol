@@ -86,15 +86,17 @@ class NeedlePickViaGrasp(PsmEnv):
             
         return obs
     
-    def get_info(self, obs = None):
+    def get_info(self, obs):
         EE_position = self._get_robot_state(idx=0)[:3]
-        info = {'EE_position': np.array(EE_position)}
+        info = {'EE_position': np.array(EE_position),
+                'is_success': self._is_success(obs['achieved_goal'], obs['desired_goal2'])}
         return info
 
     def _get_info_space(self):
         
         info_space = dict(
-            EE_position = spaces.Box(-np.inf, np.inf, shape=(3,), dtype='float32'),)
+            EE_position = spaces.Box(-np.inf, np.inf, shape=(3,), dtype='float32'),
+            is_success = spaces.MultiBinary(1))
 
         return info_space
 
