@@ -125,7 +125,7 @@ class SurRoLEnv(gym.Env):
         self._step_callback()
         obs = self._get_obs()
         info = self.get_info(obs)
-        done = self._is_success(obs['achieved_goal'], self.goal, info)
+        done = self.is_success(obs['achieved_goal'], self.goal, info)
 
         if isinstance(obs, dict):
             reward = self.compute_reward(obs['achieved_goal'], self.goal, info)
@@ -216,7 +216,7 @@ class SurRoLEnv(gym.Env):
         """
         raise NotImplementedError
 
-    def _is_success(self, achieved_goal, desired_goal, info=None):
+    def _is_success(self, achieved_goal, desired_goal, **kwargs):
         """ Indicates whether or not the achieved goal successfully achieved the desired goal.
         """
         raise NotImplementedError
