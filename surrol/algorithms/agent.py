@@ -1,5 +1,6 @@
 import numpy as np
 import gym
+import csv
 from multiprocessing import Process, Queue
 
 def run_eval_policy(net_params, net_name, args, env_name, seed, queue, eval_episodes):
@@ -7,6 +8,7 @@ def run_eval_policy(net_params, net_name, args, env_name, seed, queue, eval_epis
 	seeds = [seed+100, seed+200, seed+300, seed+400, seed+500]
 	avg_rewards = []
 	avg_ep_lens = []
+
 	for s in seeds:
 		eval_env = gym.make(env_name)
 		eval_env.seed(s)
@@ -31,10 +33,15 @@ def run_eval_policy(net_params, net_name, args, env_name, seed, queue, eval_epis
 		avg_reward /= eval_episodes
 		avg_ep_len /= eval_episodes
 
-		avg_rewards.append(avg_reward) 
+		avg_rewards.append(int(avg_reward)) 
 		avg_ep_lens.append(avg_ep_len)
 
 		eval_env.close()
+
+	# CSV writer
+	with open('logs/'+args['env'] + '/' + args['run_name'] + '/evaluation.csv', 'a') as f:
+		csv_writer = csv.writer(f)
+		csv_writer.writerow(np.concatenate((avg_ep_lens, avg_rewards)))
 	
 	print("---------------------------------------")
 	print(f"Evaluation over {5} seeds, each with {eval_episodes} episodes:\n")
@@ -79,6 +86,17 @@ class Agent:
 
 
 	def learn(self, num_timesteps):
+
+		# CSV writer
+		self.f = open('logs/'+self.args['env'] + '/' + self.args['run_name'] + '/training.csv', 'w')
+		csv_writer = csv.writer(self.f)
+		csv_writer.writerow(['ep_len', 'ep_rew'])
+
+		# CSV preparation for eval writer
+		with open('logs/'+self.args['env'] + '/' + self.args['run_name'] + '/evaluation.csv', 'w') as f:
+			temp_csv_writer = csv.writer(f)
+			temp_csv_writer.writerow(['ep_len_seed1','ep_len_seed2','ep_len_seed3', 'ep_len_seed4','ep_len_seed5',
+										'ep_rew_seed1','ep_rew_seed2','ep_rew_seed3','ep_rew_seed4','ep_rew_seed5'])
 
 		# Load policy if required
 		if self.args['load_model'] != "":
@@ -170,6 +188,10 @@ class Agent:
 			if done:
 				# +1 to account for 0 indexing. +0 on ep_timesteps since it will increment +1 even if done=True
 				print(f"Total T: {t+1} Episode Num: {episode_num+1} Episode T: {episode_timesteps} Reward: {episode_reward[0]:.3f}")
+				
+				# Write to csv
+				csv_writer.writerow([episode_timesteps, episode_reward[0]])
+
 				# Log to tensorboard
 				self.writer.add_scalar('Train/episode_rew', episode_reward[0], episode_num)
 				self.writer.add_scalar('Train/episode_len', episode_timesteps, episode_num)
@@ -218,5 +240,6 @@ class Agent:
 	def __del__(self):
 		self.eval_queue.close()
 		self.env.close()
+		self.f.close()
 
 
