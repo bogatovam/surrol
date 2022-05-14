@@ -6,7 +6,7 @@ register(
     id='NeedleReach-v0',
     #entry_point='surrol.tasks.needle_reach:NeedleReach',
     entry_point='surrol.tasks:NeedleReach',
-    max_episode_steps=1000,
+    max_episode_steps=150,
 )
 
 register(
