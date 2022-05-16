@@ -61,7 +61,7 @@ class PegTransfer(PsmEnv):
             p.changeVisualShape(obj_id, -1, rgbaColor=(255 / 255, 69 / 255, 58 / 255, 1))
         self.obj_id, self.obj_link1 = self._blocks[0], 1
 
-    def _is_success(self, achieved_goal, desired_goal):
+    def _is_success(self, achieved_goal, desired_goal, info=None):
         """ Indicates whether or not the achieved goal successfully achieved the desired goal.
         """
         # TODO: may need to tune parameters
