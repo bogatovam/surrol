@@ -27,7 +27,7 @@ register(
     id='NeedlePick-v0',
     #entry_point='surrol.tasks.needle_pick:NeedlePick',
     entry_point='surrol.tasks:NeedlePick',
-    max_episode_steps=50,
+    max_episode_steps=200,
 )
 
 register(
@@ -48,7 +48,7 @@ register(
     id='PegTransfer-v0',
     #entry_point='surrol.tasks.peg_transfer:PegTransfer',
     entry_point='surrol.tasks:PegTransfer',
-    max_episode_steps=50,
+    max_episode_steps=1000,
 )
 
 # Bimanual PSM Env
