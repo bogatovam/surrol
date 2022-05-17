@@ -48,7 +48,7 @@ register(
     id='PegTransfer-v0',
     #entry_point='surrol.tasks.peg_transfer:PegTransfer',
     entry_point='surrol.tasks:PegTransfer',
-    max_episode_steps=300,
+    max_episode_steps=200,
 )
 
 # Bimanual PSM Env

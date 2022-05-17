@@ -3,7 +3,7 @@ import time
 import numpy as np
 
 import pybullet as p
-from surrol.tasks.psm_env import PsmEnv
+from surrol.tasks.psm_env import PsmEnv, goal_distance
 from surrol.utils.pybullet_utils import (
     get_link_pose,
 )
@@ -80,9 +80,12 @@ class NeedleReach(PsmEnv):
         action = np.array([delta_pos[0], delta_pos[1], delta_pos[2], 0., 0.])
         return action
 
+    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info):
+        return -goal_distance(achieved_goal, desired_goal)
+
 
 if __name__ == "__main__":
-    env = NeedleReach(render_mode='human',seed=1)  # create one process and corresponding env
+    env = NeedleReach(render_mode='human', seed=1)  # create one process and corresponding env
 
     observation = env.reset()
 
