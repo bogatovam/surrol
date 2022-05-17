@@ -61,6 +61,34 @@ class PegTransfer(PsmEnv):
             p.changeVisualShape(obj_id, -1, rgbaColor=(255 / 255, 69 / 255, 58 / 255, 1))
         self.obj_id, self.obj_link1 = self._blocks[0], 1
 
+    # def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info):
+    #     return -goal_distance(achieved_goal[..., :2], desired_goal[..., :2]) - np.abs(
+    #         achieved_goal[..., -1] - desired_goal[..., -1])
+
+    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info=None):
+        """ All sparse reward.
+        The reward is 0 or -1.
+        """
+
+        # Identify successful grasp
+        success = self._is_success(achieved_goal, desired_goal, info)
+
+        # Initiates all rewards to -1
+        reward = np.zeros_like(success) - 1.0
+
+        # Give reward for reaching an approximate area of the grasping point
+        distance_condition = goal_distance(achieved_goal[..., :2], desired_goal[..., :2]) < 5e-3 * self.SCALING
+        reward += distance_condition
+
+        # Give reward for reaching an approximate area of the grasping point
+        distance_condition = np.abs(achieved_goal[..., -1] - desired_goal[..., -1]) < 4e-3 * self.SCALING
+        reward += distance_condition
+
+        # Add reward for successfully grasping
+        reward += success * 2.0
+
+        return reward.astype(np.float32)
+
     def _is_success(self, achieved_goal, desired_goal, info=None):
         """ Indicates whether or not the achieved goal successfully achieved the desired goal.
         """
