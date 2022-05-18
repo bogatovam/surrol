@@ -248,9 +248,12 @@ class NeedleGrasp(PsmEnv):
         return info_space
 
     def get_info(self, obs=None):
-        info = {'jaw_state': np.array(self.psm1.get_current_jaw_position())}
+        jaw_state = np.array(self.psm1.get_current_jaw_position())
+
+        info = {'jaw_state': jaw_state}
         return {'is_success': self._is_success(obs['achieved_goal'], self.goal, info),
-                'jaw_state': np.array(self.psm1.get_current_jaw_position())}
+                'jaw_state': jaw_state,
+                'goal_distance': goal_distance(obs['achieved_goal'], obs['desired_goal'])}
 
     @property
     def num_goals(self):

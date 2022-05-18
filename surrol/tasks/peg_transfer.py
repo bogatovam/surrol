@@ -160,6 +160,12 @@ class PegTransfer(PsmEnv):
 
         return action
 
+    def get_info(self, obs=None):
+        return {'is_success': self._is_success(obs['achieved_goal'], self.goal),
+                'jaw_state': np.array(self.psm1.get_current_jaw_position()),
+                'goal_distance': goal_distance(obs['achieved_goal'], self.goal),
+                'some_abs_distance': np.abs(obs['achieved_goal'][..., -1] - self.goal[..., -1])}
+
 
 if __name__ == "__main__":
     env = PegTransfer(render_mode='human')  # create one process and corresponding env
