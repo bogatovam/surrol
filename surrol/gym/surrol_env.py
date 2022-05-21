@@ -93,7 +93,9 @@ class SurRoLEnv(gym.Env):
                 )
 
                 for i in range(self.num_goals):
-                    obs_dict['desired_goal'+str(i+1)] = spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32')
+                    obs_dict['desired_goal' + str(i + 1)] = spaces.Box(-np.inf, np.inf,
+                                                                       shape=obs['achieved_goal'].shape,
+                                                                       dtype='float32')
             # If single-goal environment
             else:
                 obs_dict = dict(
@@ -176,18 +178,17 @@ class SurRoLEnv(gym.Env):
 
         return info_space
 
-
     def close(self):
         if self.cid >= 0:
             p.disconnect()
             self.cid = -1
 
-    def render(self, mode='rgb_array'):
+    def render(self, mode='rgb_array', width=RENDER_WIDTH, height=RENDER_HEIGHT):
         self._render_callback(mode)
         if mode == "human":
             return np.array([])
         # TODO: check the way to render image
-        rgb_array, mask = render_image(RENDER_WIDTH, RENDER_HEIGHT,
+        rgb_array, mask = render_image(width, height,
                                        self._view_matrix, self._proj_matrix)
         if mode == 'rgb_array':
             return rgb_array
@@ -276,7 +277,7 @@ class SurRoLEnv(gym.Env):
         Run the test simulation without any learning algorithm for debugging purposes
         """
         steps, done = 0, False
-        obs, _ = self.reset()
+        obs = self.reset()
         while not done and steps <= horizon:
             tic = time.time()
             action = self.get_oracle_action(obs)
@@ -286,13 +287,13 @@ class SurRoLEnv(gym.Env):
             if isinstance(obs, dict):
                 print(" -> achieved goal: {}".format(np.round(obs['achieved_goal'], 4)))
                 if self.num_goals > 1:
-                    print(" -> desired goal: {}".format(np.round(obs['desired_goal'+str(self.num_goals)], 4)))
+                    print(" -> desired goal: {}".format(np.round(obs['desired_goal' + str(self.num_goals)], 4)))
                 else:
                     print(" -> desired goal: {}".format(np.round(obs['desired_goal'], 4)))
             else:
                 print(" -> achieved goal: {}".format(np.round(info['achieved_goal'], 4)))
             if self.num_goals > 1:
-                done = self._is_success(obs['achieved_goal'], obs['desired_goal'+str(self.num_goals)], info)
+                done = self._is_success(obs['achieved_goal'], obs['desired_goal' + str(self.num_goals)], info)
             else:
                 done = self._is_success(obs['achieved_goal'], obs['desired_goal'], info)
             steps += 1
