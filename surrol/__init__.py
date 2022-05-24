@@ -6,14 +6,14 @@ register(
     id='NeedleReach-v0',
     #entry_point='surrol.tasks.needle_reach:NeedleReach',
     entry_point='surrol.tasks:NeedleReach',
-    max_episode_steps=150,
+    max_episode_steps=100,
 )
 
 register(
     id='NeedleGrasp-v0',
     #entry_point='surrol.tasks.needle_reach:NeedleReach',
     entry_point='surrol.tasks:NeedleGrasp',
-    max_episode_steps=150,
+    max_episode_steps=100,
 )
 
 register(
